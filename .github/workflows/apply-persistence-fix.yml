@@ -13,164 +13,72 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Patch App.tsx and remove temporary workflow
+        uses: actions/github-script@v7
         with:
-          fetch-depth: 0
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const path = 'src/App.tsx';
+            const workflowPath = '.github/workflows/apply-persistence-fix.yml';
 
-      - name: Patch App.tsx
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
+            const file = await github.rest.repos.getContent({ owner, repo, path, ref: context.sha });
+            if (Array.isArray(file.data)) throw new Error('App.tsx path resolved to a directory');
+            let text = Buffer.from(file.data.content, 'base64').toString('utf8');
 
-          path = Path('src/App.tsx')
-          text = path.read_text(encoding='utf-8')
+            const replacements = [
+              [
+                "const [isLoggedIn, setIsLoggedIn] = useState(false);",
+                "const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mataram76_admin_session') === 'true');"
+              ],
+              [
+                `const [adminCredentials, setAdminCredentials] = useState({\n    username: 'admin',\n    password: 'mataram76'\n  });`,
+                `const [adminCredentials, setAdminCredentials] = useState(() => {\n    try {\n      const saved = localStorage.getItem('mataram76_admin_credentials');\n      if (saved) {\n        const parsed = JSON.parse(saved);\n        return {\n          username: parsed.username || 'admin',\n          password: parsed.password || 'mataram76'\n        };\n      }\n    } catch (error) {\n      console.warn('Gagal membaca kredensial admin tersimpan:', error);\n    }\n    return { username: 'admin', password: 'mataram76' };\n  });`
+              ],
+              [
+                `const [settings, setSettings] = useState({\n    autoCalculate: true,\n    zones: [\n      { city: 'Yogyakarta', price: 30000 },\n      { city: 'Semarang', price: 25000 },\n      { city: 'Solo', price: 30000 },\n      { city: 'Purwokerto', price: 40000 },\n      { city: 'Magelang', price: 35000 }\n    ],\n    pricePerKg: 5000,\n    standardWeight: 3,\n    dimensionThreshold: 5000,\n    dimensionSurcharge: 15000\n  });`,
+                `const [settings, setSettings] = useState(() => {\n    const defaults = {\n      autoCalculate: true,\n      zones: [\n        { city: 'Yogyakarta', price: 30000 },\n        { city: 'Semarang', price: 25000 },\n        { city: 'Solo', price: 30000 },\n        { city: 'Purwokerto', price: 40000 },\n        { city: 'Magelang', price: 35000 }\n      ],\n      pricePerKg: 5000,\n      standardWeight: 3,\n      dimensionThreshold: 5000,\n      dimensionSurcharge: 15000\n    };\n    try {\n      const saved = localStorage.getItem('mataram76_shipping_settings');\n      if (saved) {\n        const parsed = JSON.parse(saved);\n        if (parsed && Array.isArray(parsed.zones)) {\n          return { ...defaults, ...parsed, zones: parsed.zones };\n        }\n      }\n    } catch (error) {\n      console.warn('Gagal membaca pengaturan ongkir tersimpan:', error);\n    }\n    return defaults;\n  });`
+              ],
+              [
+                `  const [selectedReceipt, setSelectedReceipt] = useState(null);\n`,
+                `  const [selectedReceipt, setSelectedReceipt] = useState(null);\n\n  // Persistensi lokal hanya untuk konfigurasi aplikasi dan sesi admin.\n  // Tidak menyentuh data transaksi/Firebase shipments/customers.\n  useEffect(() => {\n    try {\n      localStorage.setItem('mataram76_shipping_settings', JSON.stringify(settings));\n    } catch (error) {\n      console.warn('Gagal menyimpan pengaturan ongkir:', error);\n    }\n  }, [settings]);\n\n  useEffect(() => {\n    try {\n      localStorage.setItem('mataram76_admin_credentials', JSON.stringify(adminCredentials));\n    } catch (error) {\n      console.warn('Gagal menyimpan kredensial admin:', error);\n    }\n  }, [adminCredentials]);\n`
+              ],
+              [
+                `      setIsLoggedIn(true);\n      setLoginError('');`,
+                `      setIsLoggedIn(true);\n      localStorage.setItem('mataram76_admin_session', 'true');\n      setLoginError('');`
+              ],
+              [
+                `    setIsLoggedIn(false);\n    setUsernameInput('');`,
+                `    setIsLoggedIn(false);\n    localStorage.removeItem('mataram76_admin_session');\n    setUsernameInput('');`
+              ]
+            ];
 
-          replacements = []
+            for (const [oldText, newText] of replacements) {
+              if (text.includes(oldText)) text = text.replace(oldText, newText);
+            }
 
-          replacements.append((
-              "const [isLoggedIn, setIsLoggedIn] = useState(false);",
-              "const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mataram76_admin_session') === 'true');"
-          ))
+            const required = ['mataram76_admin_session', 'mataram76_admin_credentials', 'mataram76_shipping_settings', 'Persistensi lokal hanya untuk konfigurasi'];
+            const missing = required.filter(x => !text.includes(x));
+            if (missing.length) throw new Error(`Patch tidak lengkap: ${missing.join(', ')}`);
 
-          replacements.append((
-              """const [adminCredentials, setAdminCredentials] = useState({
-    username: 'admin',
-    password: 'mataram76'
-  });""",
-              """const [adminCredentials, setAdminCredentials] = useState(() => {
-    try {
-      const saved = localStorage.getItem('mataram76_admin_credentials');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          username: parsed.username || 'admin',
-          password: parsed.password || 'mataram76'
-        };
-      }
-    } catch (error) {
-      console.warn('Gagal membaca kredensial admin tersimpan:', error);
-    }
-    return { username: 'admin', password: 'mataram76' };
-  });"""
-          ))
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path,
+              message: 'fix: persist settings and admin session across reloads',
+              content: Buffer.from(text, 'utf8').toString('base64'),
+              sha: file.data.sha,
+              branch: 'main'
+            });
 
-          replacements.append((
-              """const [settings, setSettings] = useState({
-    autoCalculate: true,
-    zones: [
-      { city: 'Yogyakarta', price: 30000 },
-      { city: 'Semarang', price: 25000 },
-      { city: 'Solo', price: 30000 },
-      { city: 'Purwokerto', price: 40000 },
-      { city: 'Magelang', price: 35000 }
-    ],
-    pricePerKg: 5000,
-    standardWeight: 3,
-    dimensionThreshold: 5000,
-    dimensionSurcharge: 15000
-  });""",
-              """const [settings, setSettings] = useState(() => {
-    const defaults = {
-      autoCalculate: true,
-      zones: [
-        { city: 'Yogyakarta', price: 30000 },
-        { city: 'Semarang', price: 25000 },
-        { city: 'Solo', price: 30000 },
-        { city: 'Purwokerto', price: 40000 },
-        { city: 'Magelang', price: 35000 }
-      ],
-      pricePerKg: 5000,
-      standardWeight: 3,
-      dimensionThreshold: 5000,
-      dimensionSurcharge: 15000
-    };
-    try {
-      const saved = localStorage.getItem('mataram76_shipping_settings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.zones)) {
-          return { ...defaults, ...parsed, zones: parsed.zones };
-        }
-      }
-    } catch (error) {
-      console.warn('Gagal membaca pengaturan ongkir tersimpan:', error);
-    }
-    return defaults;
-  });"""
-          ))
-
-          marker = "  const [selectedReceipt, setSelectedReceipt] = useState(null);\n"
-          insertion = """  const [selectedReceipt, setSelectedReceipt] = useState(null);
-
-  // Persistensi lokal hanya untuk konfigurasi aplikasi dan sesi admin.
-  // Tidak menyentuh data transaksi/Firebase shipments/customers.
-  useEffect(() => {
-    try {
-      localStorage.setItem('mataram76_shipping_settings', JSON.stringify(settings));
-    } catch (error) {
-      console.warn('Gagal menyimpan pengaturan ongkir:', error);
-    }
-  }, [settings]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('mataram76_admin_credentials', JSON.stringify(adminCredentials));
-    } catch (error) {
-      console.warn('Gagal menyimpan kredensial admin:', error);
-    }
-  }, [adminCredentials]);
-"""
-          replacements.append((marker, insertion))
-
-          replacements.append((
-              "      setIsLoggedIn(true);\n      setLoginError('');",
-              "      setIsLoggedIn(true);\n      localStorage.setItem('mataram76_admin_session', 'true');\n      setLoginError('');"
-          ))
-
-          replacements.append((
-              "    setIsLoggedIn(false);\n    setUsernameInput('');",
-              "    setIsLoggedIn(false);\n    localStorage.removeItem('mataram76_admin_session');\n    setUsernameInput('');"
-          ))
-
-          for old, new in replacements:
-              if old in text:
-                  text = text.replace(old, new, 1)
-
-          required = [
-              "mataram76_admin_session",
-              "mataram76_admin_credentials",
-              "mataram76_shipping_settings",
-              "Persistensi lokal hanya untuk konfigurasi"
-          ]
-          missing = [item for item in required if item not in text]
-          if missing:
-              raise SystemExit(f'Patch tidak lengkap; missing: {missing}')
-
-          path.write_text(text, encoding='utf-8')
-          print('App.tsx persistence patch applied')
-          PY
-
-      - name: Commit App.tsx
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/App.tsx
-          if git diff --cached --quiet; then
-            echo "No App.tsx changes needed"
-            exit 0
-          fi
-          git commit -m "fix: persist settings and admin session across reloads"
-          git push origin main
-
-      - name: Remove temporary workflow
-        if: success()
-        shell: bash
-        run: |
-          git rm .github/workflows/apply-persistence-fix.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: remove temporary persistence workflow"
-          git push origin main
+            const workflow = await github.rest.repos.getContent({ owner, repo, path: workflowPath, ref: 'main' });
+            if (!Array.isArray(workflow.data)) {
+              await github.rest.repos.deleteFile({
+                owner,
+                repo,
+                path: workflowPath,
+                message: 'chore: remove temporary persistence workflow',
+                sha: workflow.data.sha,
+                branch: 'main'
+              });
+            }
