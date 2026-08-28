@@ -9,33 +9,47 @@ function injectReceiptPrintStyles(doc: Document): void {
   const style = doc.createElement('style');
   style.id = RECEIPT_PRINT_STYLE_ID;
   style.textContent = `
-    /* Hanya berlaku di dokumen iframe khusus cetak. Tampilan aplikasi tidak berubah. */
+    /* Override hanya untuk HTML nota yang dicetak melalui iframe. Layar aplikasi tidak terpengaruh. */
     .receipt {
-      font-size: 13.5px;
-      line-height: 1.22;
-      font-weight: 700;
+      font-size: 13.5px !important;
+      line-height: 1.22 !important;
+      font-weight: 700 !important;
     }
-    .label { font-size: 13px; font-weight: 700; }
-    .brand { font-size: 21px; font-weight: 900; }
-    .sub, .tiny { font-size: 11px; }
-    .resi { font-size: 15px; font-weight: 700; }
-    .city { font-size: 26px; font-weight: 900; }
-    .row { font-size: 13px; line-height: 1.2; }
-    .bold { font-size: 13px; font-weight: 700; }
-    .total { font-size: 15px; font-weight: 700; }
-    .internal { font-size: 13px; line-height: 1.22; }
-    .result { font-size: 13.5px; font-weight: 700; }
-    .net { font-size: 14px; font-weight: 700; }
-    .footer { font-size: 9.5px; line-height: 1.15; font-weight: 700; }
+    .label { font-size: 13px !important; font-weight: 700 !important; }
+    .brand { font-size: 21px !important; font-weight: 900 !important; }
+    .sub { font-size: 11px !important; }
+    .tiny { font-size: 11px !important; }
+    .resi { font-size: 15px !important; font-weight: 700 !important; }
+    .city { font-size: 26px !important; font-weight: 900 !important; }
+    .row { font-size: 13px !important; line-height: 1.2 !important; }
+    .bold { font-size: 13.5px !important; font-weight: 700 !important; }
+    .total { font-size: 15px !important; font-weight: 700 !important; }
+    .internal { font-size: 13px !important; line-height: 1.22 !important; }
+    .result { font-size: 13.5px !important; font-weight: 700 !important; }
+    .net { font-size: 14px !important; font-weight: 700 !important; }
+    .footer { font-size: 9.5px !important; line-height: 1.15 !important; font-weight: 700 !important; }
+
+    /* Paksa ukuran pada elemen nota yang menggunakan class Tailwind langsung. */
+    .receipt .text-\\[10px\\] { font-size: 13px !important; }
+    .receipt .text-\\[9px\\] { font-size: 11px !important; }
+    .receipt .text-xs { font-size: 13.5px !important; }
+    .receipt .text-lg { font-size: 21px !important; }
+    .receipt .text-2xl { font-size: 26px !important; }
   `;
 
   (doc.head || doc.documentElement).appendChild(style);
 }
 
 Document.prototype.write = function patchedDocumentWrite(this: Document, ...args: string[]): void {
+  const isReceiptPrint = args.some(
+    (html) => typeof html === 'string' &&
+      (html.includes('class="receipt"') || html.includes('class="receipt-page"'))
+  );
+
   nativeDocumentWrite.apply(this, args);
+
   try {
-    if (args.some((html) => typeof html === 'string' && html.includes('class=\"receipt\"'))) {
+    if (isReceiptPrint) {
       injectReceiptPrintStyles(this);
     }
   } catch (error) {
