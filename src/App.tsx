@@ -42,12 +42,23 @@ function generateNextResiId(shipments) {
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mataram76_admin_session') === 'true');
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [adminCredentials, setAdminCredentials] = useState({
-    username: 'admin',
-    password: 'mataram76'
+  const [adminCredentials, setAdminCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mataram76_admin_credentials');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          username: parsed.username || 'admin',
+          password: parsed.password || 'mataram76'
+        };
+      }
+    } catch (error) {
+      console.warn('Gagal membaca kredensial admin tersimpan:', error);
+    }
+    return { username: 'admin', password: 'mataram76' };
   });
   const [loginError, setLoginError] = useState('');
 
@@ -57,22 +68,54 @@ export default function App() {
 
   const [shipments, setShipments] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [settings, setSettings] = useState({
-    autoCalculate: true,
-    zones: [
-      { city: 'Yogyakarta', price: 30000 },
-      { city: 'Semarang', price: 25000 },
-      { city: 'Solo', price: 30000 },
-      { city: 'Purwokerto', price: 40000 },
-      { city: 'Magelang', price: 35000 }
-    ],
-    pricePerKg: 5000,
-    standardWeight: 3,
-    dimensionThreshold: 5000,
-    dimensionSurcharge: 15000
+  const [settings, setSettings] = useState(() => {
+    const defaults = {
+      autoCalculate: true,
+      zones: [
+        { city: 'Yogyakarta', price: 30000 },
+        { city: 'Semarang', price: 25000 },
+        { city: 'Solo', price: 30000 },
+        { city: 'Purwokerto', price: 40000 },
+        { city: 'Magelang', price: 35000 }
+      ],
+      pricePerKg: 5000,
+      standardWeight: 3,
+      dimensionThreshold: 5000,
+      dimensionSurcharge: 15000
+    };
+    try {
+      const saved = localStorage.getItem('mataram76_shipping_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.zones)) {
+          return { ...defaults, ...parsed, zones: parsed.zones };
+        }
+      }
+    } catch (error) {
+      console.warn('Gagal membaca pengaturan ongkir tersimpan:', error);
+    }
+    return defaults;
   });
 
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+
+  // Persistensi lokal hanya untuk konfigurasi aplikasi dan sesi admin.
+  // Tidak menyentuh data transaksi/Firebase shipments/customers.
+  useEffect(() => {
+    try {
+      localStorage.setItem('mataram76_shipping_settings', JSON.stringify(settings));
+    } catch (error) {
+      console.warn('Gagal menyimpan pengaturan ongkir:', error);
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mataram76_admin_credentials', JSON.stringify(adminCredentials));
+    } catch (error) {
+      console.warn('Gagal menyimpan kredensial admin:', error);
+    }
+  }, [adminCredentials]);
 
   useEffect(() => {
     signInAnonymously(auth).catch(err => {
@@ -160,6 +203,7 @@ export default function App() {
     e.preventDefault();
     if (usernameInput === adminCredentials.username && passwordInput === adminCredentials.password) {
       setIsLoggedIn(true);
+      localStorage.setItem('mataram76_admin_session', 'true');
       setLoginError('');
       showToast('Login Berhasil! Terhubung ke Cloud Firebase.');
     } else {
@@ -169,6 +213,7 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    localStorage.removeItem('mataram76_admin_session');
     setUsernameInput('');
     setPasswordInput('');
     showToast('Berhasil logout.', 'info');
