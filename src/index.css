@@ -11,3 +11,46 @@
     scrollbar-width: none;
   }
 }
+
+/* Print-only typography. Tampilan layar tidak berubah. */
+@media print {
+  #receipt-print-area .receipt-thermal {
+    font-size: 13.5px !important;
+    line-height: 1.22 !important;
+    font-weight: 700 !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #receipt-print-area .receipt-thermal .text-xs {
+    font-size: 13px !important;
+  }
+
+  #receipt-print-area .receipt-thermal .text-lg {
+    font-size: 21px !important;
+    font-weight: 900 !important;
+  }
+
+  #receipt-print-area .receipt-thermal .text-2xl {
+    font-size: 26px !important;
+    font-weight: 900 !important;
+  }
+
+  #receipt-print-area .receipt-thermal .text-\[9px\] {
+    font-size: 11px !important;
+  }
+
+  #receipt-print-area .receipt-thermal .text-\[10px\] {
+    font-size: 13px !important;
+  }
+
+  #receipt-print-area .receipt-thermal .text-\[11px\] {
+    font-size: 13.5px !important;
+  }
+
+  #receipt-print-area .receipt-thermal .font-bold {
+    font-weight: 700 !important;
+  }
+}
