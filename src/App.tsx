@@ -99,6 +99,18 @@ export default function App() {
 
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
+  useEffect(() => {
+    const shippingSettingsRef = doc(db, 'settings', 'shipping');
+    const unsubscribe = onSnapshot(shippingSettingsRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const cloudSettings = snapshot.data();
+      if (cloudSettings && Array.isArray(cloudSettings.zones)) {
+        setSettings(prev => ({ ...prev, ...cloudSettings, zones: cloudSettings.zones }));
+      }
+    }, (error) => console.error('Firestore shipping settings error:', error));
+    return () => unsubscribe();
+  }, []);
+
   // Persistensi lokal hanya untuk konfigurasi aplikasi dan sesi admin.
   // Tidak menyentuh data transaksi/Firebase shipments/customers.
   useEffect(() => {
@@ -819,8 +831,8 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
                 value={formData.destinationCity}
                 onChange={(e) => setFormData(prev => ({ ...prev, destinationCity: e.target.value }))}
               >
-                {settings.zones.map((z, idx) => (
-                  <option key={idx} value={z.city}>{z.city} (Base: Rp {z.price.toLocaleString('id-ID')})</option>
+                {[...settings.zones].sort((a,b) => a.city.localeCompare(b.city, 'id', { sensitivity: 'base' })).map((z, idx) => (
+                  <option key={`${z.city}-${idx}`} value={z.city}>{z.city} (Base: Rp {z.price.toLocaleString('id-ID')})</option>
                 ))}
               </select>
             </div>
@@ -1583,6 +1595,9 @@ function ReportsView({ shipments, setShipments, showToast }) {
 function SettingsView({ settings, setSettings, adminCredentials, setAdminCredentials, showToast }) {
   const [newCity, setNewCity] = useState('');
   const [newPrice, setNewPrice] = useState('');
+  const [editingZoneIndex, setEditingZoneIndex] = useState(null);
+  const [editCity, setEditCity] = useState('');
+  const [editPrice, setEditPrice] = useState('');
   const [localSettings, setLocalSettings] = useState(settings);
 
   const [currentPassInput, setCurrentPassInput] = useState('');
@@ -1601,6 +1616,35 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
     showToast('Zona/Kota berhasil ditambahkan!');
   };
 
+  const handleStartEditZone = (index) => {
+    const zone = localSettings.zones[index];
+    setEditingZoneIndex(index);
+    setEditCity(zone.city);
+    setEditPrice(String(zone.price));
+  };
+
+  const handleCancelEditZone = () => {
+    setEditingZoneIndex(null);
+    setEditCity('');
+    setEditPrice('');
+  };
+
+  const handleSaveEditZone = (e) => {
+    e.preventDefault();
+    if (editingZoneIndex === null || !editCity.trim() || !editPrice) return;
+    const city = formatEYD(editCity.trim());
+    if (localSettings.zones.some((z,i) => i !== editingZoneIndex && z.city.trim().toLowerCase() === city.toLowerCase())) {
+      showToast('Nama kota sudah ada dalam daftar!', 'error');
+      return;
+    }
+    const zones = localSettings.zones.map((z,i) => i === editingZoneIndex ? { city, price: Number(editPrice) } : z);
+    const updated = { ...localSettings, zones };
+    setLocalSettings(updated);
+    setSettings(updated);
+    handleCancelEditZone();
+    showToast('Kota dan harga dasar berhasil diperbarui!');
+  };
+
   const handleRemoveZone = (index) => {
     const updatedZones = localSettings.zones.filter((_, idx) => idx !== index);
     const updated = { ...localSettings, zones: updatedZones };
@@ -1609,10 +1653,16 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
     showToast('Zona/Kota berhasil dihapus.', 'info');
   };
 
-  const handleSaveGeneralSettings = (e) => {
+  const handleSaveGeneralSettings = async (e) => {
     e.preventDefault();
-    setSettings(localSettings);
-    showToast('Pengaturan ongkir berhasil disimpan!');
+    try {
+      await setDoc(doc(db, 'settings', 'shipping'), localSettings, { merge: true });
+      setSettings(localSettings);
+      showToast('Pengaturan ongkir berhasil disimpan ke Cloud!');
+    } catch (error) {
+      console.error('Gagal menyimpan pengaturan ongkir ke Cloud:', error);
+      showToast('Gagal menyimpan pengaturan ongkir ke Cloud!', 'error');
+    }
   };
 
   const handleChangePassword = (e) => {
@@ -1696,18 +1746,25 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Daftar Kota & Harga Dasar</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {localSettings.zones.map((zone, idx) => (
-                <div key={idx} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-white text-sm">{zone.city}</div>
-                    <div className="text-xs text-indigo-400 font-mono mt-0.5">Rp {zone.price.toLocaleString('id-ID')}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveZone(idx)}
-                    className="p-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div key={`${zone.city}-${idx}`} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5">
+                  {editingZoneIndex === idx ? (
+                    <form onSubmit={handleSaveEditZone} className="space-y-2">
+                      <input type="text" value={editCity} onChange={(e) => setEditCity(formatEYD(e.target.value))} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm" placeholder="Nama Kota/Zona" required />
+                      <input type="number" min="0" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm" placeholder="Harga dasar (Rp)" required />
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={handleCancelEditZone} className="px-3 py-1.5 bg-slate-700 rounded-lg text-xs">Batal</button>
+                        <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium">Simpan</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <div><div className="font-semibold text-white text-sm">{zone.city}</div><div className="text-xs text-indigo-400 font-mono mt-0.5">Rp {zone.price.toLocaleString('id-ID')}</div></div>
+                      <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={() => handleStartEditZone(idx)} className="p-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-lg" title="Edit kota dan harga dasar"><Edit3 className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => handleRemoveZone(idx)} className="p-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white rounded-lg" title="Hapus kota"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1787,7 +1844,7 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
               required
               className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={confirmPassInput}
-              onChange={(e) => setNewPassInput(e.target.value)}
+              onChange={(e) => setConfirmPassInput(e.target.value)}
             />
           </div>
 
