@@ -11,37 +11,37 @@ function appFixes() {
 
       // Settings Ongkir: Firestore menjadi sumber utama agar seluruh komputer sinkron.
       const selectedReceiptMarker = `  const [selectedReceipt, setSelectedReceipt] = useState(null);`
-      if (!out.includes('mataram76_shipping_settings_cloud_loaded')) {
+      if (!out.includes('settingsCloudLoaded')) {
         out = out.replace(
           selectedReceiptMarker,
           `${selectedReceiptMarker}\n  const [settingsCloudLoaded, setSettingsCloudLoaded] = useState(false);\n\n  useEffect(() => {\n    const shippingRef = doc(db, 'settings', 'shipping');\n    const unsubscribe = onSnapshot(shippingRef, (snapshot) => {\n      if (snapshot.exists()) {\n        const cloudSettings = snapshot.data();\n        if (cloudSettings && Array.isArray(cloudSettings.zones)) {\n          setSettings(prev => ({ ...prev, ...cloudSettings, zones: cloudSettings.zones }));\n        }\n      } else {\n        setDoc(shippingRef, settings, { merge: true }).catch((error) => {\n          console.error('Gagal membuat pengaturan ongkir Cloud:', error);\n        });\n      }\n      setSettingsCloudLoaded(true);\n    }, (error) => {\n      console.error('Firestore shipping settings error:', error);\n      setSettingsCloudLoaded(true);\n    });\n    return () => unsubscribe();\n  }, []);\n\n  useEffect(() => {\n    if (!settingsCloudLoaded) return;\n    setDoc(doc(db, 'settings', 'shipping'), settings, { merge: true }).catch((error) => {\n      console.error('Gagal menyimpan pengaturan ongkir ke Cloud:', error);\n    });\n  }, [settings, settingsCloudLoaded]);`
         )
       }
 
-      // SettingsView harus mengikuti perubahan dari Firestore setelah komponen sudah terbuka.
+      // SettingsView mengikuti data Cloud yang masuk setelah komponen sudah terbuka.
       const localSettingsMarker = `  const [localSettings, setLocalSettings] = useState(settings);`
       if (!out.includes('mataram76_sync_local_settings')) {
         out = out.replace(
           localSettingsMarker,
-          `${localSettingsMarker}\n  useEffect(() => {\n    setLocalSettings(settings);\n  }, [settings]);\n  // matarAM76_sync_local_settings`
+          `${localSettingsMarker}\n  useEffect(() => {\n    setLocalSettings(settings);\n  }, [settings]);\n  // mataram76_sync_local_settings`
+        )
+      }
+
+      // State untuk mode Edit kota/harga dasar.
+      const newPriceMarker = `  const [newPrice, setNewPrice] = useState('');`
+      if (!out.includes('const [editingZoneIndex')) {
+        out = out.replace(
+          newPriceMarker,
+          `${newPriceMarker}\n  const [editingZoneIndex, setEditingZoneIndex] = useState(null);\n  const [editCity, setEditCity] = useState('');\n  const [editPrice, setEditPrice] = useState('');`
         )
       }
 
       // Fitur Edit pada Daftar Kota & Harga Dasar.
       const removeMarker = `  const handleRemoveZone = (index) => {`
-      if (!out.includes('handleStartEditZone')) {
+      if (!out.includes('const handleStartEditZone')) {
         out = out.replace(
           removeMarker,
           `  const handleStartEditZone = (index) => {\n    const zone = localSettings.zones[index];\n    setEditingZoneIndex(index);\n    setEditCity(zone.city);\n    setEditPrice(String(zone.price));\n  };\n\n  const handleCancelEditZone = () => {\n    setEditingZoneIndex(null);\n    setEditCity('');\n    setEditPrice('');\n  };\n\n  const handleSaveEditZone = (e) => {\n    e.preventDefault();\n    if (editingZoneIndex === null || !editCity.trim() || !editPrice) return;\n    const updatedZones = localSettings.zones.map((zone, idx) => (\n      idx === editingZoneIndex\n        ? { city: formatEYD(editCity.trim()), price: Number(editPrice) }\n        : zone\n    ));\n    const updated = { ...localSettings, zones: updatedZones };\n    setLocalSettings(updated);\n    setSettings(updated);\n    handleCancelEditZone();\n    showToast('Kota dan harga dasar berhasil diperbarui!');\n  };\n\n${removeMarker}`
-        )
-      }
-
-      // Tambahkan state edit bila belum ada.
-      const newPriceMarker = `  const [newPrice, setNewPrice] = useState('');`
-      if (!out.includes('editingZoneIndex')) {
-        out = out.replace(
-          newPriceMarker,
-          `${newPriceMarker}\n  const [editingZoneIndex, setEditingZoneIndex] = useState(null);\n  const [editCity, setEditCity] = useState('');\n  const [editPrice, setEditPrice] = useState('');`
         )
       }
 
