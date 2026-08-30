@@ -1604,6 +1604,12 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
   const [newPassInput, setNewPassInput] = useState('');
   const [confirmPassInput, setConfirmPassInput] = useState('');
 
+  useEffect(() => {
+    if (editingZoneIndex === null) {
+      setLocalSettings(settings);
+    }
+  }, [settings, editingZoneIndex]);
+
   const handleAddZone = (e) => {
     e.preventDefault();
     if (!newCity || !newPrice) return;
@@ -1640,9 +1646,8 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
     const zones = localSettings.zones.map((z,i) => i === editingZoneIndex ? { city, price: Number(editPrice) } : z);
     const updated = { ...localSettings, zones };
     setLocalSettings(updated);
-    setSettings(updated);
     handleCancelEditZone();
-    showToast('Kota dan harga dasar berhasil diperbarui!');
+    showToast('Perubahan kota dan harga siap disimpan. Tekan "Simpan Pengaturan Ongkir" untuk menyimpan ke Cloud.');
   };
 
   const handleRemoveZone = (index) => {
@@ -1748,14 +1753,14 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
               {localSettings.zones.map((zone, idx) => (
                 <div key={`${zone.city}-${idx}`} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5">
                   {editingZoneIndex === idx ? (
-                    <form onSubmit={handleSaveEditZone} className="space-y-2">
+                    <div className="space-y-2">
                       <input type="text" value={editCity} onChange={(e) => setEditCity(formatEYD(e.target.value))} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm" placeholder="Nama Kota/Zona" required />
                       <input type="number" min="0" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm" placeholder="Harga dasar (Rp)" required />
                       <div className="flex justify-end gap-2">
                         <button type="button" onClick={handleCancelEditZone} className="px-3 py-1.5 bg-slate-700 rounded-lg text-xs">Batal</button>
-                        <button type="submit" className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium">Simpan</button>
+                        <button type="button" onClick={handleSaveEditZone} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium">Simpan</button>
                       </div>
-                    </form>
+                    </div>
                   ) : (
                     <div className="flex items-center justify-between gap-3">
                       <div><div className="font-semibold text-white text-sm">{zone.city}</div><div className="text-xs text-indigo-400 font-mono mt-0.5">Rp {zone.price.toLocaleString('id-ID')}</div></div>
@@ -2146,47 +2151,7 @@ function ReceiptModal({ receipt, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print-modal-overlay">
-      <style>{`
-        @media print {
-          @page {
-            size: 80mm 80mm;
-            margin: 0;
-          }
-          body {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          #receipt-print-area, #receipt-print-area * {
-            visibility: visible !important;
-          }
-          #receipt-print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 80mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          .receipt-thermal {
-            page-break-after: always !important;
-            break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            border: none !important;
-            margin: 0 !important;
-            width: 80mm !important;
-            max-width: 80mm !important;
-            min-height: 80mm !important;
-            box-shadow: none !important;
-            padding: 4mm !important;
-          }
-        }
-      `}</style>
+      <style>{`\n        @media print {\n          @page {\n            size: 80mm 80mm;\n            margin: 0;\n          }\n          body {\n            background-color: #ffffff !important;\n            color: #000000 !important;\n            margin: 0 !important;\n            padding: 0 !important;\n          }\n          body * {\n            visibility: hidden !important;\n          }\n          #receipt-print-area, #receipt-print-area * {\n            visibility: visible !important;\n          }\n          #receipt-print-area {\n            position: absolute !important;\n            left: 0 !important;\n            top: 0 !important;\n            width: 80mm !important;\n            margin: 0 !important;\n            padding: 0 !important;\n          }\n          .receipt-thermal {\n            page-break-after: always !important;\n            break-after: page !important;\n            page-break-inside: avoid !important;\n            break-inside: avoid !important;\n            border: none !important;\n            margin: 0 !important;\n            width: 80mm !important;\n            max-width: 80mm !important;\n            min-height: 80mm !important;\n            box-shadow: none !important;\n            padding: 4mm !important;\n          }\n        }\n      `}</style>
       <div className="bg-slate-100 text-slate-900 rounded-2xl max-w-lg w-full p-4 shadow-2xl relative print:shadow-none print:w-full print:max-w-none print:p-0 print:bg-white">
         <button
           onClick={onClose}
