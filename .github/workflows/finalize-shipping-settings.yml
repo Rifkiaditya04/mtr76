@@ -1,0 +1,68 @@
+name: finalize-shipping-settings
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix: implement cloud shipping settings') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch App.tsx directly and remove build patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          marker = "  const [selectedReceipt, setSelectedReceipt] = useState(null);"
+          if "const shippingSettingsRef = doc(db, 'settings', 'shipping')" not in s:
+              insert = marker + "\n\n  // Settings ongkir tersimpan terpusat di Firestore agar semua komputer menggunakan konfigurasi yang sama.\n  useEffect(() => {\n    const shippingSettingsRef = doc(db, 'settings', 'shipping');\n    const unsubscribe = onSnapshot(shippingSettingsRef, (snapshot) => {\n      if (!snapshot.exists()) return;\n      const cloudSettings = snapshot.data();\n      if (cloudSettings && Array.isArray(cloudSettings.zones)) {\n        setSettings(prev => ({ ...prev, ...cloudSettings, zones: cloudSettings.zones }));\n      }\n    }, (error) => {\n      console.error('Firestore shipping settings error:', error);\n    });\n    return () => unsubscribe();\n  }, []);"
+              if marker not in s: raise SystemExit('marker selectedReceipt tidak ditemukan')
+              s = s.replace(marker, insert, 1)
+
+          old_save = """  const handleSaveGeneralSettings = (e) => {\n    e.preventDefault();\n    setSettings(localSettings);\n    showToast('Pengaturan ongkir berhasil disimpan!');\n  };"""
+          new_save = """  const handleSaveGeneralSettings = async (e) => {\n    e.preventDefault();\n    try {\n      const shippingSettingsRef = doc(db, 'settings', 'shipping');\n      await setDoc(shippingSettingsRef, localSettings, { merge: true });\n      setSettings(localSettings);\n      showToast('Pengaturan ongkir berhasil disimpan ke Cloud!');\n    } catch (error) {\n      console.error('Gagal menyimpan pengaturan ongkir ke Cloud:', error);\n      showToast('Gagal menyimpan pengaturan ongkir ke Cloud!', 'error');\n    }\n  };"""
+          if old_save not in s: raise SystemExit('handleSaveGeneralSettings tidak ditemukan')
+          s = s.replace(old_save, new_save, 1)
+
+          old_state = "  const [newPrice, setNewPrice] = useState('');"
+          if "const [editingZoneIndex" not in s:
+              s = s.replace(old_state, old_state + "\n  const [editingZoneIndex, setEditingZoneIndex] = useState(null);\n  const [editCity, setEditCity] = useState('');\n  const [editPrice, setEditPrice] = useState('');", 1)
+
+          remove_marker = "  const handleRemoveZone = (index) => {"
+          if "const handleStartEditZone" not in s:
+              edit_code = """  const handleStartEditZone = (index) => {\n    const zone = localSettings.zones[index];\n    setEditingZoneIndex(index);\n    setEditCity(zone.city);\n    setEditPrice(String(zone.price));\n  };\n\n  const handleCancelEditZone = () => {\n    setEditingZoneIndex(null);\n    setEditCity('');\n    setEditPrice('');\n  };\n\n  const handleSaveEditZone = (e) => {\n    e.preventDefault();\n    if (editingZoneIndex === null || !editCity.trim() || !editPrice) return;\n    const normalizedCity = formatEYD(editCity.trim());\n    const duplicate = localSettings.zones.some((zone, idx) => idx !== editingZoneIndex && zone.city.trim().toLowerCase() === normalizedCity.toLowerCase());\n    if (duplicate) {\n      showToast('Nama kota sudah ada dalam daftar!', 'error');\n      return;\n    }\n    const updatedZones = localSettings.zones.map((zone, idx) => (idx === editingZoneIndex ? { city: normalizedCity, price: Number(editPrice) } : zone));\n    const updated = { ...localSettings, zones: updatedZones };\n    setLocalSettings(updated);\n    setSettings(updated);\n    handleCancelEditZone();\n    showToast('Kota dan harga dasar berhasil diperbarui!');\n  };\n\n"""
+              if remove_marker not in s: raise SystemExit('handleRemoveZone tidak ditemukan')
+              s = s.replace(remove_marker, edit_code + remove_marker, 1)
+
+          old_list = """              {localSettings.zones.map((zone, idx) => (\n                <div key={idx} className=\"bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5 flex items-center justify-between\">\n                  <div>\n                    <div className=\"font-semibold text-white text-sm\">{zone.city}</div>\n                    <div className=\"text-xs text-indigo-400 font-mono mt-0.5\">Rp {zone.price.toLocaleString('id-ID')}</div>\n                  </div>\n                  <button\n                    type=\"button\"\n                    onClick={() => handleRemoveZone(idx)}\n                    className=\"p-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition-all\"\n                  >\n                    <Trash2 className=\"w-4 h-4\" />\n                  </button>\n                </div>\n              ))}"""
+          new_list = """              {localSettings.zones.map((zone, idx) => (\n                <div key={`${zone.city}-${idx}`} className=\"bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5\">\n                  {editingZoneIndex === idx ? (\n                    <form onSubmit={handleSaveEditZone} className=\"space-y-2\">\n                      <input type=\"text\" value={editCity} onChange={(e) => setEditCity(formatEYD(e.target.value))} className=\"w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm\" placeholder=\"Nama Kota/Zona\" required />\n                      <input type=\"number\" min=\"0\" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className=\"w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm\" placeholder=\"Harga dasar (Rp)\" required />\n                      <div className=\"flex justify-end gap-2\">\n                        <button type=\"button\" onClick={handleCancelEditZone} className=\"px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs\">Batal</button>\n                        <button type=\"submit\" className=\"px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium\">Simpan</button>\n                      </div>\n                    </form>\n                  ) : (\n                    <div className=\"flex items-center justify-between gap-3\">\n                      <div>\n                        <div className=\"font-semibold text-white text-sm\">{zone.city}</div>\n                        <div className=\"text-xs text-indigo-400 font-mono mt-0.5\">Rp {zone.price.toLocaleString('id-ID')}</div>\n                      </div>\n                      <div className=\"flex items-center gap-1.5\">\n                        <button type=\"button\" onClick={() => handleStartEditZone(idx)} className=\"p-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-lg transition-all\" title=\"Edit kota dan harga dasar\"><Edit3 className=\"w-4 h-4\" /></button>\n                        <button type=\"button\" onClick={() => handleRemoveZone(idx)} className=\"p-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white rounded-lg transition-all\" title=\"Hapus kota\"><Trash2 className=\"w-4 h-4\" /></button>\n                      </div>\n                    </div>\n                  )}\n                </div>\n              ))}"""
+          if old_list not in s: raise SystemExit('blok daftar kota tidak ditemukan')
+          s = s.replace(old_list, new_list, 1)
+
+          old_dropdown = """{settings.zones.map((z, idx) => (\n                  <option key={idx} value={z.city}>{z.city} (Base: Rp {z.price.toLocaleString('id-ID')})</option>\n                ))}"""
+          new_dropdown = """{[...settings.zones].sort((a, b) => a.city.localeCompare(b.city, 'id', { sensitivity: 'base' })).map((z, idx) => (\n                  <option key={`${z.city}-${idx}`} value={z.city}>{z.city} (Base: Rp {z.price.toLocaleString('id-ID')})</option>\n                ))}"""
+          if old_dropdown not in s: raise SystemExit('dropdown kota tidak ditemukan')
+          s = s.replace(old_dropdown, new_dropdown, 1)
+
+          # Fix existing confirmation-password field binding.
+          old_confirm = "onChange={(e) => setNewPassInput(e.target.value)}"
+          if s.count(old_confirm) >= 2:
+              pos = s.rfind(old_confirm)
+              s = s[:pos] + "onChange={(e) => setConfirmPassInput(e.target.value)}" + s[pos+len(old_confirm):]
+
+          p.write_text(s)
+          Path('vite.config.ts').write_text("import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n})\n")
+          PY
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx vite.config.ts .github/workflows/finalize-shipping-settings.yml
+          git commit -m "fix: implement cloud shipping settings and edit controls"
+          git push
