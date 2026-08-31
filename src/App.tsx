@@ -536,6 +536,7 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
     receiverAddress: initialData?.receiverAddress || '',
     serviceType: initialData?.serviceType || 'Antar sampai tujuan',
     weight: initialData?.weight || '',
+    colli: String(initialData?.colli ?? 1),
     length: initialData?.length || '',
     width: initialData?.width || '',
     height: initialData?.height || '',
@@ -647,6 +648,7 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
       date: `${yyyy}-${mm}-${dd}`,
       time: `${hours}:${minutes}`,
       ...formData,
+      colli: Number(formData.colli) || 1,
       shippingCost: Number(formData.shippingCost) || 0,
       calo: Number(formData.calo) || 0,
       lb: formData.lb || '',
@@ -862,7 +864,7 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-2">
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">Berat (kg) - Opsional</label>
               <input
@@ -872,6 +874,19 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
                 placeholder="Contoh: 2.5"
                 value={formData.weight}
                 onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Colli (Koli)</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                required
+                className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={formData.colli}
+                onChange={(e) => setFormData(prev => ({ ...prev, colli: e.target.value }))}
               />
             </div>
 
@@ -1605,10 +1620,8 @@ function SettingsView({ settings, setSettings, adminCredentials, setAdminCredent
   const [confirmPassInput, setConfirmPassInput] = useState('');
 
   useEffect(() => {
-    if (editingZoneIndex === null) {
-      setLocalSettings(settings);
-    }
-  }, [settings, editingZoneIndex]);
+    setLocalSettings(settings);
+  }, [settings]);
 
   const handleAddZone = (e) => {
     e.preventDefault();
@@ -1912,6 +1925,7 @@ function ReceiptContent({ receipt, variant }) {
         {(receipt.weight || receipt.length) && (
           <div><span className="font-bold">Fisik:</span> {receipt.weight ? `${receipt.weight}kg` : ''} {receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}</div>
         )}
+        <div><span className="font-bold">Colli:</span> {receipt.colli ?? 1}</div>
       </div>
 
       {variant === 'pengirim' && (
@@ -1993,6 +2007,7 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
       <div class="row"><span class="bold">Tujuan:</span> ${escapePrintHtml(receipt.destinationCity)}</div>
       <div class="row"><span class="bold">Layanan:</span> ${escapePrintHtml(receipt.serviceType)}</div>
       ${(receipt.weight || receipt.length) ? `<div class="row"><span class="bold">Fisik:</span> ${receipt.weight ? `${escapePrintHtml(receipt.weight)}kg` : ''} ${receipt.length ? `(${escapePrintHtml(receipt.length)}x${escapePrintHtml(receipt.width)}x${escapePrintHtml(receipt.height)}cm)` : ''}</div>` : ''}
+      <div class="row"><span class="bold">Colli:</span> ${escapePrintHtml(receipt.colli ?? 1)}</div>
     </div>`;
 
   const bodies = {
