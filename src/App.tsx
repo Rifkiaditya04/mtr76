@@ -1541,6 +1541,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
                 <th className="p-3 rounded-l-xl">No Resi / Tanggal</th>
                 <th className="p-3">Penerima</th>
                 <th className="p-3">Tujuan</th>
+                <th className="p-3">Colli</th>
                 <th className="p-3 font-bold text-white">Ongkir</th>
                 <th className="p-3">Calo</th>
                 <th className="p-3 text-amber-400">ST (Input Manual)</th>
@@ -1551,7 +1552,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
             <tbody className="divide-y divide-slate-800/60">
               {filteredShipments.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-10 text-slate-500 font-sans text-sm">
+                  <td colSpan="9" className="text-center py-10 text-slate-500 font-sans text-sm">
                     Tidak ada data laporan pada periode ini.
                   </td>
                 </tr>
@@ -1571,6 +1572,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
                       </td>
                       <td className="p-3 text-white">{item.receiverName}</td>
                       <td className="p-3 text-slate-300">{item.destinationCity}</td>
+                      <td className="p-3 text-slate-300">{item.colli ?? 1}</td>
                       <td className="p-3 font-bold text-white font-mono">Rp {cost.toLocaleString('id-ID')}</td>
                       <td className="p-3 text-slate-300 font-mono">Rp {calo.toLocaleString('id-ID')}</td>
                       <td className="p-3">
@@ -1919,7 +1921,7 @@ function ReceiptContent({ receipt, variant }) {
       </div>
 
       <div className="border-b border-black pb-2 mb-2 space-y-1">
-        <div><span className="font-bold">PENGIRIM:</span> {receipt.senderName} ({receipt.senderPhone})</div>
+        <div><span className="font-bold">PENGIRIM:</span> {variant === 'penerima' ? receipt.senderName : `${receipt.senderName} (${receipt.senderPhone})`}</div>
         {receipt.senderAddress && <div><span className="font-bold">Alamat:</span> {receipt.senderAddress}</div>}
         <div className="mt-1"><span className="font-bold">PENERIMA:</span> {receipt.receiverName} ({receipt.receiverPhone})</div>
         <div><span className="font-bold">Alamat:</span> {receipt.receiverAddress}</div>
@@ -1986,6 +1988,9 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
   const internalNet = shippingCost - calo;
   const netIncome = shippingCost - calo - st;
   const money = (value) => Number(value || 0).toLocaleString('id-ID');
+  const senderContact = variant === 'penerima'
+    ? escapePrintHtml(receipt.senderName)
+    : `${escapePrintHtml(receipt.senderName)} (${escapePrintHtml(receipt.senderPhone)})`;
 
   const common = `
     <div class="header">
@@ -2004,7 +2009,7 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
       </div>
     </div>
     <div class="section">
-      <div class="row"><span class="bold">PENGIRIM:</span> ${escapePrintHtml(receipt.senderName)} (${escapePrintHtml(receipt.senderPhone)})</div>
+      <div class="row"><span class="bold">PENGIRIM:</span> ${senderContact}</div>
       ${receipt.senderAddress ? `<div class="row"><span class="bold">Alamat:</span> ${escapePrintHtml(receipt.senderAddress)}</div>` : ''}
       <div class="row"><span class="bold">PENERIMA:</span> ${escapePrintHtml(receipt.receiverName)} (${escapePrintHtml(receipt.receiverPhone)})</div>
       <div class="row"><span class="bold">Alamat:</span> ${escapePrintHtml(receipt.receiverAddress)}</div>
