@@ -848,6 +848,8 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
               >
                 <option value="Antar sampai tujuan">Antar sampai tujuan</option>
                 <option value="Ambil di agen">Ambil di agen</option>
+                <option value="Ambil di garasi">Ambil di garasi</option>
+                <option value="Ketemuan">Ketemuan</option>
               </select>
             </div>
 
@@ -1095,6 +1097,8 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
                 <th className="p-3">Pengirim</th>
                 <th className="p-3">Penerima</th>
                 <th className="p-3">Tujuan</th>
+                <th className="p-3">Layanan</th>
+                <th className="p-3">Colli</th>
                 <th className="p-3">Ongkir</th>
                 <th className="p-3">Status</th>
                 <th className="p-3 rounded-r-xl text-right">Aksi</th>
@@ -1114,6 +1118,8 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
                     <div className="text-xs text-slate-400">{item.receiverPhone}</div>
                   </td>
                   <td className="p-3 text-slate-300">{item.destinationCity}</td>
+                  <td className="p-3 text-slate-300">{item.serviceType || '-'}</td>
+                  <td className="p-3 text-slate-300">{item.colli ?? 1}</td>
                   <td className="p-3 font-medium text-white">Rp {Number(item.shippingCost).toLocaleString('id-ID')}</td>
                   <td className="p-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -1533,7 +1539,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
             <thead className="bg-slate-800/60 text-slate-400 uppercase">
               <tr>
                 <th className="p-3 rounded-l-xl">No Resi / Tanggal</th>
-                <th className="p-3">Pengirim</th>
+                <th className="p-3">Penerima</th>
                 <th className="p-3">Tujuan</th>
                 <th className="p-3 font-bold text-white">Ongkir</th>
                 <th className="p-3">Calo</th>
@@ -1563,7 +1569,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
                         <div className="font-mono font-bold text-indigo-400">{item.id}</div>
                         <div className="text-[10px] text-slate-400">{item.date} {item.time && `(${item.time})`}</div>
                       </td>
-                      <td className="p-3 text-white">{item.senderName}</td>
+                      <td className="p-3 text-white">{item.receiverName}</td>
                       <td className="p-3 text-slate-300">{item.destinationCity}</td>
                       <td className="p-3 font-bold text-white font-mono">Rp {cost.toLocaleString('id-ID')}</td>
                       <td className="p-3 text-slate-300 font-mono">Rp {calo.toLocaleString('id-ID')}</td>
