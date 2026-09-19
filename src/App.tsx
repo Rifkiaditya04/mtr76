@@ -1542,6 +1542,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
                 <th className="p-3">Penerima</th>
                 <th className="p-3">Tujuan</th>
                 <th className="p-3">Colli</th>
+                <th className="p-3">LB</th>
                 <th className="p-3 font-bold text-white">Ongkir</th>
                 <th className="p-3">Calo</th>
                 <th className="p-3 text-amber-400">ST (Input Manual)</th>
@@ -1552,7 +1553,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
             <tbody className="divide-y divide-slate-800/60">
               {filteredShipments.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-10 text-slate-500 font-sans text-sm">
+                  <td colSpan="10" className="text-center py-10 text-slate-500 font-sans text-sm">
                     Tidak ada data laporan pada periode ini.
                   </td>
                 </tr>
@@ -1573,6 +1574,7 @@ function ReportsView({ shipments, setShipments, showToast }) {
                       <td className="p-3 text-white">{item.receiverName}</td>
                       <td className="p-3 text-slate-300">{item.destinationCity}</td>
                       <td className="p-3 text-slate-300">{item.colli ?? 1}</td>
+                      <td className="p-3 text-slate-300">{item.lb || '-'}</td>
                       <td className="p-3 font-bold text-white font-mono">Rp {cost.toLocaleString('id-ID')}</td>
                       <td className="p-3 text-slate-300 font-mono">Rp {calo.toLocaleString('id-ID')}</td>
                       <td className="p-3">
