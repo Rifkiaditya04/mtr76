@@ -2197,12 +2197,12 @@ function buildQuickPrinterReceiptText(receipt, variant) {
   );
 
   if (receipt.senderAddress) {
-    lines.push(`Alamat Pengirim: ${clean(receipt.senderAddress)}`);
+    lines.push(`Alamat: ${clean(receipt.senderAddress)}`);
   }
 
   lines.push(
     `PENERIMA: ${clean(receipt.receiverName)} (${clean(receipt.receiverPhone)})`,
-    `Alamat Penerima: ${clean(receipt.receiverAddress)}`,
+    `Alamat: ${clean(receipt.receiverAddress)}`,
     `Layanan: ${clean(receipt.serviceType)}`
   );
 
@@ -2298,11 +2298,11 @@ function ReceiptModal({ receipt, onClose }) {
             <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
               {quickPrintStep < 4 ? (
                 <>
-                  {quickPrintLabels[quickPrintStep - 1]} sudah dikirim ke Quick Printer.
+                  Permintaan untuk {quickPrintLabels[quickPrintStep - 1]} sudah dipanggil melalui Quick Printer.
                   <span className="block mt-1">Kembali ke browser setelah menangani nota tersebut, lalu lanjutkan pengiriman nota berikutnya.</span>
                 </>
               ) : (
-                <>Ketiga nota sudah dikirim satu per satu ke Quick Printer. Status ini menunjukkan pengiriman permintaan, bukan konfirmasi hasil cetak.</>
+                <>Permintaan untuk ketiga nota sudah dipanggil satu per satu. Browser tidak menerima konfirmasi apakah semuanya berhasil tercetak.</>
               )}
             </div>
           )}
