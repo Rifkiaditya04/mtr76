@@ -2238,14 +2238,15 @@ function buildQuickPrinterReceiptText(receipt, variant) {
   return lines.join('<BR>');
 }
 
-function sendQuickPrinterReceipt(receipt, variant) {
+function buildQuickPrinterIntentUrl(receipt, variant) {
   const textToPrint = buildQuickPrinterReceiptText(receipt, variant);
-  // Ikuti format integrasi web resmi Quick Printer untuk Chrome Android.
-  // Karakter # dan ? pada data transaksi di-encode agar tidak mengubah struktur URI.
+  // Format intent mengikuti dokumentasi resmi Quick Printer untuk Chrome Android.
+  // # dan ? di dalam isi nota harus di-encode agar tidak dianggap sebagai pemisah URI.
   const encodedText = encodeURI(textToPrint)
     .replace(/#/g, '%23')
     .replace(/\?/g, '%3F');
-  window.location.href = `intent://${encodedText}#Intent;scheme=quickprinter;package=pe.diegoveloper.printerserverapp;end;`;
+
+  return `intent://${encodedText}#Intent;scheme=quickprinter;package=pe.diegoveloper.printerserverapp;end;`;
 }
 
 function ReceiptModal({ receipt, onClose }) {
@@ -2256,19 +2257,6 @@ function ReceiptModal({ receipt, onClose }) {
   const handleBrowserPrint = () => {
     // Jalur Browser tetap memakai fungsi cetak lama tanpa perubahan.
     printReceiptDirectly(receipt);
-  };
-
-  const handleStartQuickPrint = () => {
-    sendQuickPrinterReceipt(receipt, quickPrintVariants[0]);
-    setQuickPrintStep(1);
-  };
-
-  const handleNextQuickPrint = () => {
-    const variant = quickPrintVariants[quickPrintStep];
-    if (!variant) return;
-
-    sendQuickPrinterReceipt(receipt, variant);
-    setQuickPrintStep((current) => current + 1);
   };
 
   return (
@@ -2322,21 +2310,23 @@ function ReceiptModal({ receipt, onClose }) {
               <span>Cetak Browser</span>
             </button>
             {quickPrintStep === 0 ? (
-              <button
-                onClick={handleStartQuickPrint}
+              <a
+                href={buildQuickPrinterIntentUrl(receipt, quickPrintVariants[0])}
+                onClick={() => setQuickPrintStep(1)}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
               >
                 <Printer className="w-4 h-4" />
                 <span>Cetak Quick Printer</span>
-              </button>
-            ) : quickPrintStep < 4 ? (
-              <button
-                onClick={handleNextQuickPrint}
+              </a>
+            ) : quickPrintStep < 3 ? (
+              <a
+                href={buildQuickPrinterIntentUrl(receipt, quickPrintVariants[quickPrintStep])}
+                onClick={() => setQuickPrintStep((current) => current + 1)}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
               >
                 <Printer className="w-4 h-4" />
                 <span>Kirim {quickPrintLabels[quickPrintStep]}</span>
-              </button>
+              </a>
             ) : null}
           </div>
         </div>
