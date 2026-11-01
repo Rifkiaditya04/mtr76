@@ -656,28 +656,13 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
       sopir: ''
     };
 
-    // Siapkan frame print saat masih berada dalam gesture klik tombol.
-    // Ini menghindari popup blocker dan memastikan hanya dokumen nota yang dicetak.
-    const printFrame = document.createElement('iframe');
-    printFrame.setAttribute('aria-hidden', 'true');
-    printFrame.style.position = 'fixed';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    printFrame.style.opacity = '0';
-    printFrame.style.pointerEvents = 'none';
-    printFrame.style.left = '-10000px';
-    printFrame.style.top = '0';
-    document.body.appendChild(printFrame);
-
     try {
       await addDoc(collection(db, 'shipments'), newShipment);
       if (setInitialData) setInitialData(null);
       showToast(`Paket berhasil disimpan ke Cloud dengan Resi: ${newResiId}`);
-      printReceiptDirectly(newShipment, printFrame);
-      // Tidak membuka ReceiptModal setelah penyimpanan.
+      // Tampilkan pilihan metode cetak hanya setelah transaksi berhasil tersimpan.
+      setSelectedReceipt(newShipment);
     } catch (err) {
-      printFrame.remove();
       console.error("Error saving shipment:", err);
       showToast("Gagal menyimpan ke Cloud!", "error");
     }
@@ -2170,11 +2155,120 @@ function printReceiptDirectly(receipt, printFrame) {
   return true;
 }
 
+function escapeQuickPrinterText(value) {
+  return String(value ?? '-')
+    .replace(/</g, '‹')
+    .replace(/>/g, '›')
+    .replace(/\r?\n/g, ' ');
+}
+
+function buildQuickPrinterReceiptText(receipt, variant) {
+  const st = Number(receipt.st) || 0;
+  const calo = Number(receipt.calo) || 0;
+  const shippingCost = Number(receipt.shippingCost) || 0;
+  const internalNet = shippingCost - calo;
+  const netIncome = shippingCost - calo - st;
+  const clean = escapeQuickPrinterText;
+  const money = (value) => Number(value || 0).toLocaleString('id-ID');
+  const titles = {
+    pengirim: 'NOTA PENGIRIM',
+    penerima: 'NOTA PENERIMA',
+    internal: 'NOTA INTERNAL / ARSIP'
+  };
+
+  const senderContact = variant === 'penerima'
+    ? clean(receipt.senderName)
+    : `${clean(receipt.senderName)} (${clean(receipt.senderPhone)})`;
+
+  const lines = [
+    `<CENTER><BOLD>*** ${titles[variant]} ***<BR><BIG>MATARAM76<BR><NORMAL>`,
+    'agen pengangkutan paket cepat',
+    'Jl. MT Haryono 76 Semarang',
+    'Telp. (024) 3549652 | WA: 08179175780',
+    '<LEFT>',
+    `RESI: ${clean(receipt.id)}`,
+    `Tgl: ${clean(receipt.date)}`
+  ];
+
+  if (receipt.time) lines.push(`Waktu: ${clean(receipt.time)}`);
+  lines.push(
+    `Tujuan: ${clean(receipt.destinationCity || '-')}`,
+    `PENGIRIM: ${senderContact}`
+  );
+
+  if (receipt.senderAddress) {
+    lines.push(`Alamat: ${clean(receipt.senderAddress)}`);
+  }
+
+  lines.push(
+    `PENERIMA: ${clean(receipt.receiverName)} (${clean(receipt.receiverPhone)})`,
+    `Alamat: ${clean(receipt.receiverAddress)}`,
+    `Layanan: ${clean(receipt.serviceType)}`
+  );
+
+  if (receipt.weight || receipt.length) {
+    lines.push(
+      `Fisik: ${receipt.weight ? `${clean(receipt.weight)}kg` : ''} ${receipt.length ? `(${clean(receipt.length)}x${clean(receipt.width)}x${clean(receipt.height)}cm)` : ''}`.trim()
+    );
+  }
+
+  lines.push(`Colli: ${clean(receipt.colli ?? 1)}`);
+
+  if (variant === 'pengirim') {
+    lines.push(`<BOLD>TOTAL ONGKIR: Rp ${money(shippingCost)}<NORMAL>`);
+  } else if (variant === 'penerima') {
+    lines.push('Tanda tangan penerima:', '', '', '');
+  } else if (variant === 'internal') {
+    lines.push(
+      `Ongkir: Rp ${money(shippingCost)}`,
+      ...(calo > 0 ? [`Calo: - Rp ${money(calo)}`] : []),
+      `LB: ${clean(receipt.lb || '-')}`,
+      `<BOLD>HASIL: Rp ${money(internalNet)}<NORMAL>`,
+      `ST: Rp ${money(st)}`,
+      `Sopir: ${clean(receipt.sopir || '-')}`,
+      `<BOLD>Pendapatan Bersih: Rp ${money(netIncome)}<NORMAL>`
+    );
+  }
+
+  lines.push(
+    '<CENTER>Jika dalam waktu 7 hari tidak ada pengaduan dan pengirim, dianggap telah diterima dengan baik/betul.',
+    '<CUT>'
+  );
+
+  return lines.join('<BR>');
+}
+
+function sendQuickPrinterReceipt(receipt, variant) {
+  const textToPrint = buildQuickPrinterReceiptText(receipt, variant);
+  // Ikuti format integrasi web resmi Quick Printer untuk Chrome Android.
+  // Karakter # dan ? pada data transaksi di-encode agar tidak mengubah struktur URI.
+  const encodedText = encodeURI(textToPrint)
+    .replace(/#/g, '%23')
+    .replace(/\?/g, '%3F');
+  window.location.href = `intent://${encodedText}#Intent;scheme=quickprinter;package=pe.diegoveloper.printerserverapp;end;`;
+}
+
 function ReceiptModal({ receipt, onClose }) {
-  const handlePrint = () => {
-    // Cetak ulang menggunakan mekanisme print yang sama dengan
-    // alur "Simpan ke Cloud & Cetak Resi", tetapi TANPA menyimpan ulang ke Cloud.
+  const [quickPrintStep, setQuickPrintStep] = useState(0);
+  const quickPrintVariants = ['pengirim', 'penerima', 'internal'];
+  const quickPrintLabels = ['Nota Pengirim', 'Nota Penerima', 'Nota Internal/Arsip'];
+
+  const handleBrowserPrint = () => {
+    // Jalur Browser tetap memakai fungsi cetak lama tanpa perubahan.
     printReceiptDirectly(receipt);
+  };
+
+  const handleStartQuickPrint = () => {
+    sendQuickPrinterReceipt(receipt, quickPrintVariants[0]);
+    setQuickPrintStep(1);
+  };
+
+  const handleNextQuickPrint = () => {
+    const variant = quickPrintVariants[quickPrintStep];
+    if (!variant) return;
+
+    sendQuickPrinterReceipt(receipt, variant);
+    setQuickPrintStep((current) => current + 1);
   };
 
   return (
@@ -2199,20 +2293,52 @@ function ReceiptModal({ receipt, onClose }) {
           <ReceiptContent receipt={receipt} variant="internal" />
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-3 print:hidden border-t border-slate-300 pt-4 px-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-medium transition-all"
-          >
-            Tutup
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Cetak Nota POS-80 (Ctrl+P)</span>
-          </button>
+        <div className="mt-4 flex flex-col gap-3 print:hidden border-t border-slate-300 pt-4 px-2">
+          {quickPrintStep > 0 && (
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              {quickPrintStep < 4 ? (
+                <>
+                  Permintaan untuk {quickPrintLabels[quickPrintStep - 1]} sudah dipanggil melalui Quick Printer.
+                  <span className="block mt-1">Kembali ke browser setelah menangani nota tersebut, lalu lanjutkan pengiriman nota berikutnya.</span>
+                </>
+              ) : (
+                <>Permintaan untuk ketiga nota sudah dipanggil satu per satu. Browser tidak menerima konfirmasi apakah semuanya berhasil tercetak.</>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-medium transition-all"
+            >
+              Tutup
+            </button>
+            <button
+              onClick={handleBrowserPrint}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Cetak Browser</span>
+            </button>
+            {quickPrintStep === 0 ? (
+              <button
+                onClick={handleStartQuickPrint}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Cetak Quick Printer</span>
+              </button>
+            ) : quickPrintStep < 4 ? (
+              <button
+                onClick={handleNextQuickPrint}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Kirim {quickPrintLabels[quickPrintStep]}</span>
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
