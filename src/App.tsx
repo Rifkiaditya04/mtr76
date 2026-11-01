@@ -2159,7 +2159,7 @@ function escapeQuickPrinterText(value) {
   return String(value ?? '-')
     .replace(/</g, '‹')
     .replace(/>/g, '›')
-    .replace(/\\r?\\n/g, ' ');
+    .replace(/\r?\n/g, ' ');
 }
 
 function buildQuickPrinterReceiptText(receipt, variant) {
@@ -2244,7 +2244,7 @@ function sendQuickPrinterReceipt(receipt, variant) {
   // Karakter # dan ? pada data transaksi di-encode agar tidak mengubah struktur URI.
   const encodedText = encodeURI(textToPrint)
     .replace(/#/g, '%23')
-    .replace(/\\?/g, '%3F');
+    .replace(/\?/g, '%3F');
   window.location.href = `intent://${encodedText}#Intent;scheme=quickprinter;package=pe.diegoveloper.printerserverapp;end;`;
 }
 
