@@ -2312,7 +2312,7 @@ function ReceiptModal({ receipt, onClose }) {
             {quickPrintStep === 0 ? (
               <a
                 href={buildQuickPrinterIntentUrl(receipt, quickPrintVariants[0])}
-                onClick={() => setQuickPrintStep(1)}
+                onClick={() => window.setTimeout(() => setQuickPrintStep(1), 500)}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
               >
                 <Printer className="w-4 h-4" />
@@ -2321,7 +2321,7 @@ function ReceiptModal({ receipt, onClose }) {
             ) : quickPrintStep < 3 ? (
               <a
                 href={buildQuickPrinterIntentUrl(receipt, quickPrintVariants[quickPrintStep])}
-                onClick={() => setQuickPrintStep((current) => current + 1)}
+                onClick={() => window.setTimeout(() => setQuickPrintStep((current) => current + 1), 500)}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
               >
                 <Printer className="w-4 h-4" />
