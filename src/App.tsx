@@ -2284,7 +2284,7 @@ function ReceiptModal({ receipt, onClose }) {
         <div className="mt-4 flex flex-col gap-3 print:hidden border-t border-slate-300 pt-4 px-2">
           {quickPrintStep > 0 && (
             <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-              {quickPrintStep < 4 ? (
+              {quickPrintStep < 3 ? (
                 <>
                   Permintaan untuk {quickPrintLabels[quickPrintStep - 1]} sudah dipanggil melalui Quick Printer.
                   <span className="block mt-1">Kembali ke browser setelah menangani nota tersebut, lalu lanjutkan pengiriman nota berikutnya.</span>
