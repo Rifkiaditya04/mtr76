@@ -2259,6 +2259,18 @@ function ReceiptModal({ receipt, onClose }) {
     printReceiptDirectly(receipt);
   };
 
+  const handleQuickPrinterPrint = () => {
+    const variant = quickPrintVariants[quickPrintStep];
+    if (!variant) return;
+
+    const nextStep = quickPrintStep + 1;
+    // Luncurkan Quick Printer langsung dari gestur klik pengguna,
+    // mengikuti pola window.location.href pada dokumentasi resminya.
+    window.location.href = buildQuickPrinterIntentUrl(receipt, variant);
+    // Perbarui indikator setelah browser menerima navigasi intent.
+    window.setTimeout(() => setQuickPrintStep(nextStep), 500);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print-modal-overlay">
       <style>{`\n        @media print {\n          @page {\n            size: 80mm 80mm;\n            margin: 0;\n          }\n          body {\n            background-color: #ffffff !important;\n            color: #000000 !important;\n            margin: 0 !important;\n            padding: 0 !important;\n          }\n          body * {\n            visibility: hidden !important;\n          }\n          #receipt-print-area, #receipt-print-area * {\n            visibility: visible !important;\n          }\n          #receipt-print-area {\n            position: absolute !important;\n            left: 0 !important;\n            top: 0 !important;\n            width: 80mm !important;\n            margin: 0 !important;\n            padding: 0 !important;\n          }\n          .receipt-thermal {\n            page-break-after: always !important;\n            break-after: page !important;\n            page-break-inside: avoid !important;\n            break-inside: avoid !important;\n            border: none !important;\n            margin: 0 !important;\n            width: 80mm !important;\n            max-width: 80mm !important;\n            min-height: 80mm !important;\n            box-shadow: none !important;\n            padding: 4mm !important;\n          }\n        }\n      `}</style>
@@ -2309,24 +2321,15 @@ function ReceiptModal({ receipt, onClose }) {
               <Printer className="w-4 h-4" />
               <span>Cetak Browser</span>
             </button>
-            {quickPrintStep === 0 ? (
-              <a
-                href={buildQuickPrinterIntentUrl(receipt, quickPrintVariants[0])}
-                onClick={() => window.setTimeout(() => setQuickPrintStep(1), 500)}
+            {quickPrintStep < 3 ? (
+              <button
+                type="button"
+                onClick={handleQuickPrinterPrint}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
               >
                 <Printer className="w-4 h-4" />
-                <span>Cetak Quick Printer</span>
-              </a>
-            ) : quickPrintStep < 3 ? (
-              <a
-                href={buildQuickPrinterIntentUrl(receipt, quickPrintVariants[quickPrintStep])}
-                onClick={() => window.setTimeout(() => setQuickPrintStep((current) => current + 1), 500)}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Kirim {quickPrintLabels[quickPrintStep]}</span>
-              </a>
+                <span>{quickPrintStep === 0 ? 'Cetak Quick Printer' : `Kirim ${quickPrintLabels[quickPrintStep]}`}</span>
+              </button>
             ) : null}
           </div>
         </div>
