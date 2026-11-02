@@ -217,32 +217,28 @@ function toBase64(bytes: number[]): string {
 }
 
 /**
- * Returns false outside Android. On Android, launches the installed RawBT app.
- * The payload is one print job containing the three note variants in sequence.
+ * Sends exactly one receipt variant to RawBT as one independent print job.
+ * The caller owns the Android preview/decision sequence between variants.
  */
-export function printReceiptViaRawBt(receipt: ReceiptData): boolean {
+export function printReceiptViaRawBt(
+  receipt: ReceiptData,
+  variant: 'pengirim' | 'penerima' | 'internal'
+): boolean {
   if (!isAndroid()) return false;
 
   try {
     const bytes: number[] = [0x1b, 0x40]; // ESC @ initialize printer
-    const variants = ['pengirim', 'penerima', 'internal'] as const;
-    variants.forEach((variant, index) => {
-      appendRasterCommand(bytes, renderReceipt(receipt, variant));
-      if (index < variants.length - 1) bytes.push(0x1b, 0x64, 0x04); // feed 4 lines between notes
-    });
+    appendRasterCommand(bytes, renderReceipt(receipt, variant));
     bytes.push(0x1b, 0x64, 0x04); // final feed; no cutter command is assumed
 
     const payload = toBase64(bytes);
-    // Use RawBT's explicit Android intent without a browser fallback. A failed
-    // handoff must never silently fall back to Android's browser print preview.
+    // Keep Android on the RawBT route; never fall back to browser print preview.
     const intentUrl = `intent:base64,${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
     window.location.href = intentUrl;
     return true;
   } catch (error) {
     console.error('RawBT direct print failed:', error);
-    // Android is still considered handled so App.tsx never invokes browser print.
-    // Surface preparation errors instead of opening the overlapping Android preview.
     window.alert(`Gagal menyiapkan nota untuk RawBT: ${error instanceof Error ? error.message : String(error)}`);
-    return true;
+    return false;
   }
 }
