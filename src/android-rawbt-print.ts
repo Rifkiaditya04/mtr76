@@ -30,7 +30,7 @@ function makeCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#000';
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'alphabetic';
   return { canvas, ctx };
 }
 
@@ -46,8 +46,12 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     setFont(size, weight);
     const lines = wrapText(ctx, text, CONTENT_WIDTH);
     for (const line of lines) {
-      ctx.fillText(line, Math.max(LEFT, (PAPER_DOTS - ctx.measureText(line).width) / 2), y);
-      y += size + gap;
+      const metrics = ctx.measureText(line);
+      const ascent = metrics.actualBoundingBoxAscent || size * 0.8;
+      const descent = metrics.actualBoundingBoxDescent || size * 0.2;
+      const lineHeight = Math.max(size + 4, ascent + descent + 4);
+      ctx.fillText(line, Math.max(LEFT, (PAPER_DOTS - metrics.width) / 2), y + ascent);
+      y += lineHeight + gap;
     }
   };
 
@@ -78,8 +82,12 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   const textBlock = (text: string, size = 23, weight = 700, gap = 5) => {
     setFont(size, weight);
     for (const line of wrapText(ctx, text, CONTENT_WIDTH)) {
-      ctx.fillText(line, LEFT, y);
-      y += size + gap;
+      const metrics = ctx.measureText(line);
+      const ascent = metrics.actualBoundingBoxAscent || size * 0.8;
+      const descent = metrics.actualBoundingBoxDescent || size * 0.2;
+      const lineHeight = Math.max(size + 4, ascent + descent + 4);
+      ctx.fillText(line, LEFT, y + ascent);
+      y += lineHeight + gap;
     }
   };
 
