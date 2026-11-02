@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { printReceiptViaRawBt } from './android-rawbt-print';
 import { 
   Package, Users, FileText, Settings, LayoutDashboard, PlusCircle, 
@@ -679,10 +679,13 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
       await addDoc(collection(db, 'shipments'), newShipment);
       if (setInitialData) setInitialData(null);
       showToast(`Paket berhasil disimpan ke Cloud dengan Resi: ${newResiId}`);
-      if (!useAndroidRawBt || !printReceiptViaRawBt(newShipment)) {
+      if (useAndroidRawBt) {
+        // Android menampilkan tiga preview berurutan; tidak menyimpan ulang saat mencetak.
+        setSelectedReceipt(newShipment);
+      } else {
+        // Jalur desktop dipertahankan: browser print untuk tiga nota.
         printReceiptDirectly(newShipment, printFrame);
       }
-      // Tidak membuka ReceiptModal setelah penyimpanan.
     } catch (err) {
       if (printFrame) printFrame.remove();
       console.error("Error saving shipment:", err);
@@ -2178,11 +2181,88 @@ function printReceiptDirectly(receipt, printFrame) {
 }
 
 function ReceiptModal({ receipt, onClose }) {
-  const handlePrint = () => {
-    // Cetak ulang menggunakan mekanisme print yang sama dengan
-    // alur "Simpan ke Cloud & Cetak Resi", tetapi TANPA menyimpan ulang ke Cloud.
-    if (!printReceiptViaRawBt(receipt)) printReceiptDirectly(receipt);
+  const variants = ['pengirim', 'penerima', 'internal'];
+  const titles = {
+    pengirim: 'Nota Pengirim',
+    penerima: 'Nota Penerima',
+    internal: 'Nota Arsip (Internal)'
   };
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const [androidVariantIndex, setAndroidVariantIndex] = useState(0);
+  const [waitingForRawBt, setWaitingForRawBt] = useState(false);
+  const waitingRef = useRef(false);
+  const leftBrowserRef = useRef(false);
+  const advanceRef = useRef(() => {});
+
+  const advanceAndroidPreview = () => {
+    waitingRef.current = false;
+    setWaitingForRawBt(false);
+    if (androidVariantIndex >= variants.length - 1) {
+      onClose();
+    } else {
+      setAndroidVariantIndex(index => index + 1);
+    }
+  };
+  advanceRef.current = advanceAndroidPreview;
+
+  // RawBT berjalan sebagai aplikasi terpisah. Preview berikutnya dibuka otomatis
+  // setelah browser kembali aktif dari RawBT, bukan saat intent baru diluncurkan.
+  useEffect(() => {
+    if (!isAndroid) return undefined;
+
+    const markAppLeft = () => {
+      leftBrowserRef.current = true;
+    };
+    const resumeAfterRawBt = () => {
+      if (!waitingRef.current || !leftBrowserRef.current) return;
+      leftBrowserRef.current = false;
+      advanceRef.current();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        markAppLeft();
+      } else if (document.visibilityState === 'visible') {
+        resumeAfterRawBt();
+      }
+    };
+
+    window.addEventListener('blur', markAppLeft);
+    window.addEventListener('focus', resumeAfterRawBt);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('blur', markAppLeft);
+      window.removeEventListener('focus', resumeAfterRawBt);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isAndroid]);
+
+  const handlePrint = () => {
+    // Reprint tidak pernah menulis ulang data Firebase.
+    if (!isAndroid) {
+      printReceiptDirectly(receipt);
+      return;
+    }
+
+    waitingRef.current = true;
+    leftBrowserRef.current = false;
+    setWaitingForRawBt(true);
+    const variant = variants[androidVariantIndex];
+    if (!printReceiptViaRawBt(receipt, variant)) {
+      waitingRef.current = false;
+      setWaitingForRawBt(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (waitingForRawBt) return;
+    if (androidVariantIndex >= variants.length - 1) {
+      onClose();
+    } else {
+      setAndroidVariantIndex(index => index + 1);
+    }
+  };
+
+  const activeVariant = variants[androidVariantIndex];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print-modal-overlay">
@@ -2196,30 +2276,64 @@ function ReceiptModal({ receipt, onClose }) {
         </button>
 
         <div className="print:hidden mb-4 pt-2 px-2">
-          <h3 className="text-lg font-bold text-slate-800">Cetak 3 Nota Resi (POS-80)</h3>
-          <p className="text-xs text-slate-600 mt-1">Nota Pengirim, Penerima, dan Internal (Arsip) diatur masing-masing 1 halaman per nota (Total 3 Halaman).</p>
+          <h3 className="text-lg font-bold text-slate-800">
+            {isAndroid ? `Preview ${titles[activeVariant]} (${androidVariantIndex + 1}/3)` : 'Cetak 3 Nota Resi (POS-80)'}
+          </h3>
+          <p className="text-xs text-slate-600 mt-1">
+            {isAndroid
+              ? 'Pilih Cetak untuk mengirim nota ini ke RawBT, atau Batal untuk melewatinya. Setelah kembali dari RawBT, preview berikutnya terbuka otomatis.'
+              : 'Nota Pengirim, Penerima, dan Internal (Arsip) diatur masing-masing 1 halaman per nota (Total 3 Halaman).'}
+          </p>
         </div>
 
         <div id="receipt-print-area" className="space-y-6 print:space-y-0">
-          <ReceiptContent receipt={receipt} variant="pengirim" />
-          <ReceiptContent receipt={receipt} variant="penerima" />
-          <ReceiptContent receipt={receipt} variant="internal" />
+          {isAndroid ? (
+            <ReceiptContent receipt={receipt} variant={activeVariant} />
+          ) : (
+            <>
+              <ReceiptContent receipt={receipt} variant="pengirim" />
+              <ReceiptContent receipt={receipt} variant="penerima" />
+              <ReceiptContent receipt={receipt} variant="internal" />
+            </>
+          )}
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-3 print:hidden border-t border-slate-300 pt-4 px-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-medium transition-all"
-          >
-            Tutup
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Cetak Nota POS-80 (Ctrl+P)</span>
-          </button>
+          {isAndroid ? (
+            <>
+              <button
+                onClick={handleCancel}
+                disabled={waitingForRawBt}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-medium transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handlePrint}
+                disabled={waitingForRawBt}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-medium shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1"
+              >
+                <Printer className="w-4 h-4" />
+                <span>{waitingForRawBt ? 'Menunggu kembali dari RawBT…' : 'Cetak Nota POS-80'}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-medium transition-all"
+              >
+                Tutup
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Cetak Nota POS-80 (Ctrl+P)</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
