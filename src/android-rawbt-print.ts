@@ -38,8 +38,10 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   const { canvas, ctx } = makeCanvas();
   let y = 22;
 
-  const setFont = (size: number, weight = 700) => {
-    ctx.font = `${weight} ${size}px monospace`;
+  // Perbesar tipografi umum secara bertahap untuk keterbacaan (+18%).
+  // Ukuran nama kota diatur terpisah agar tetap sekitar 2x ukuran sebelumnya.
+  const setFont = (size: number, weight = 700, scale = 1.18) => {
+    ctx.font = `${weight} ${size * scale}px monospace`;
   };
 
   const center = (text: string, size = 24, weight = 700, gap = 7) => {
@@ -91,6 +93,44 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     }
   };
 
+  const boxedCity = (value: unknown) => {
+    const city = String(value ?? '-').toUpperCase();
+    const fontSize = 56; // 2x ukuran nama kota sebelumnya (28px).
+    const horizontalPadding = 18;
+    const verticalPadding = 10;
+    const borderWidth = 3;
+    const maxTextWidth = CONTENT_WIDTH - (horizontalPadding + borderWidth) * 2;
+
+    setFont(fontSize, 900, 1);
+    let metrics = ctx.measureText(city);
+
+    // Nama kota panjang tetap dibatasi pada area cetak, tanpa memotong teks.
+    if (metrics.width > maxTextWidth) {
+      const fittedSize = Math.max(18, fontSize * (maxTextWidth / metrics.width));
+      setFont(fittedSize, 900, 1);
+      metrics = ctx.measureText(city);
+    }
+
+    const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.8;
+    const descent = metrics.actualBoundingBoxDescent || fontSize * 0.2;
+    const boxWidth = Math.min(
+      CONTENT_WIDTH,
+      Math.ceil(metrics.width + (horizontalPadding + borderWidth) * 2)
+    );
+    const boxHeight = Math.ceil(ascent + descent + verticalPadding * 2 + borderWidth * 2);
+    const boxX = (PAPER_DOTS - boxWidth) / 2;
+
+    ctx.lineWidth = borderWidth;
+    ctx.strokeRect(
+      boxX + borderWidth / 2,
+      y + borderWidth / 2,
+      boxWidth - borderWidth,
+      boxHeight - borderWidth
+    );
+    ctx.fillText(city, (PAPER_DOTS - metrics.width) / 2, y + borderWidth + verticalPadding + ascent);
+    y += boxHeight + 10;
+  };
+
   const row = (label: string, value: unknown) => {
     const content = `${label} ${String(value ?? '-')}`;
     textBlock(content, 22, 700, 5);
@@ -115,8 +155,9 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   rule(10);
 
   textBlock(`RESI: ${receipt.id || '-'}`, 23, 900, 5);
-  textBlock(`Tgl: ${receipt.date || '-'}   Waktu: ${receipt.time || '-'}`, 19, 700, 5);
-  center(String(receipt.destinationCity || '-').toUpperCase(), 28, 900, 5);
+  textBlock(`Tgl: ${receipt.date || '-'}`, 19, 700, 5);
+  textBlock(`Waktu: ${receipt.time || '-'}`, 19, 700, 5);
+  boxedCity(receipt.destinationCity || '-');
   rule(12);
 
   const senderContact = variant === 'penerima'
