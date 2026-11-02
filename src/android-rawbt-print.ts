@@ -24,7 +24,7 @@ function money(value: unknown): string {
 function makeCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const canvas = document.createElement('canvas');
   canvas.width = PAPER_DOTS;
-  canvas.height = 1;
+  canvas.height = 4096;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Canvas 2D tidak tersedia pada browser ini.');
   ctx.fillStyle = '#fff';
@@ -158,8 +158,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   center('dengan baik/betul.', 17, 700, 3);
 
   y += 18;
-  canvas.height = Math.max(1, Math.ceil(y));
-  // Resizing canvas clears its drawing context, so redraw using an offscreen copy.
+  // Copy only the rendered height into a compact canvas without resizing the source.
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = PAPER_DOTS;
   finalCanvas.height = canvas.height;
