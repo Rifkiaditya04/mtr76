@@ -158,15 +158,17 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   center('dengan baik/betul.', 17, 700, 3);
 
   y += 18;
-  // Copy only the rendered height into a compact canvas without resizing the source.
+  // Crop to the actual rendered content; do not transmit the 4096px work canvas.
+  const contentHeight = Math.max(1, Math.ceil(y + 8));
+  if (contentHeight > canvas.height) {
+    throw new Error('Nota melebihi batas area raster sementara.');
+  }
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = PAPER_DOTS;
-  finalCanvas.height = canvas.height;
+  finalCanvas.height = contentHeight;
   const finalCtx = finalCanvas.getContext('2d');
   if (!finalCtx) throw new Error('Canvas 2D tidak tersedia.');
-  finalCtx.fillStyle = '#fff';
-  finalCtx.fillRect(0, 0, PAPER_DOTS, finalCanvas.height);
-  finalCtx.drawImage(canvas, 0, 0);
+  finalCtx.drawImage(canvas, 0, 0, PAPER_DOTS, contentHeight, 0, 0, PAPER_DOTS, contentHeight);
   return finalCanvas;
 }
 
@@ -223,12 +225,16 @@ export function printReceiptViaRawBt(receipt: ReceiptData): boolean {
     bytes.push(0x1b, 0x64, 0x04); // final feed; no cutter command is assumed
 
     const payload = toBase64(bytes);
-    const fallback = encodeURIComponent(window.location.href);
-    const intentUrl = `intent:base64,${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=${fallback};end;`;
+    // Use RawBT's explicit Android intent without a browser fallback. A failed
+    // handoff must never silently fall back to Android's browser print preview.
+    const intentUrl = `intent:base64,${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
     window.location.href = intentUrl;
     return true;
   } catch (error) {
     console.error('RawBT direct print failed:', error);
-    return false;
+    // Android is still considered handled so App.tsx never invokes browser print.
+    // Surface preparation errors instead of opening the overlapping Android preview.
+    window.alert(`Gagal menyiapkan nota untuk RawBT: ${error instanceof Error ? error.message : String(error)}`);
+    return true;
   }
 }
