@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { printReceiptViaRawBt } from './android-rawbt-print';
 import { 
   Package, Users, FileText, Settings, LayoutDashboard, PlusCircle, 
   Printer, Search, Download, CheckCircle2, Clock, AlertCircle, 
@@ -656,28 +657,34 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
       sopir: ''
     };
 
-    // Siapkan frame print saat masih berada dalam gesture klik tombol.
-    // Ini menghindari popup blocker dan memastikan hanya dokumen nota yang dicetak.
-    const printFrame = document.createElement('iframe');
-    printFrame.setAttribute('aria-hidden', 'true');
-    printFrame.style.position = 'fixed';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-    printFrame.style.opacity = '0';
-    printFrame.style.pointerEvents = 'none';
-    printFrame.style.left = '-10000px';
-    printFrame.style.top = '0';
-    document.body.appendChild(printFrame);
+    // Android memakai jalur RawBT langsung; desktop tetap memakai iframe print lama.
+    const useAndroidRawBt = /Android/i.test(navigator.userAgent);
+    let printFrame = null;
+    if (!useAndroidRawBt) {
+      // Pertahankan persiapan iframe desktop persis seperti jalur sebelumnya.
+      printFrame = document.createElement('iframe');
+      printFrame.setAttribute('aria-hidden', 'true');
+      printFrame.style.position = 'fixed';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      printFrame.style.opacity = '0';
+      printFrame.style.pointerEvents = 'none';
+      printFrame.style.left = '-10000px';
+      printFrame.style.top = '0';
+      document.body.appendChild(printFrame);
+    }
 
     try {
       await addDoc(collection(db, 'shipments'), newShipment);
       if (setInitialData) setInitialData(null);
       showToast(`Paket berhasil disimpan ke Cloud dengan Resi: ${newResiId}`);
-      printReceiptDirectly(newShipment, printFrame);
+      if (!useAndroidRawBt || !printReceiptViaRawBt(newShipment)) {
+        printReceiptDirectly(newShipment, printFrame);
+      }
       // Tidak membuka ReceiptModal setelah penyimpanan.
     } catch (err) {
-      printFrame.remove();
+      if (printFrame) printFrame.remove();
       console.error("Error saving shipment:", err);
       showToast("Gagal menyimpan ke Cloud!", "error");
     }
@@ -2174,7 +2181,7 @@ function ReceiptModal({ receipt, onClose }) {
   const handlePrint = () => {
     // Cetak ulang menggunakan mekanisme print yang sama dengan
     // alur "Simpan ke Cloud & Cetak Resi", tetapi TANPA menyimpan ulang ke Cloud.
-    printReceiptDirectly(receipt);
+    if (!printReceiptViaRawBt(receipt)) printReceiptDirectly(receipt);
   };
 
   return (
