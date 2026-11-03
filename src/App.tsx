@@ -30,6 +30,34 @@ function formatEYD(val) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+
+function numberToIndonesianWords(value) {
+  const number = Math.floor(Number(value));
+  if (!Number.isFinite(number) || number < 0) return 'nol';
+  if (number === 0) return 'nol';
+  const units = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
+  const spell = (n) => {
+    if (n < 10) return units[n];
+    if (n === 10) return 'sepuluh';
+    if (n === 11) return 'sebelas';
+    if (n < 20) return `${units[n - 10]} belas`;
+    if (n < 100) return `${units[Math.floor(n / 10)]} puluh${n % 10 ? ` ${spell(n % 10)}` : ''}`;
+    if (n < 200) return `seratus${n % 100 ? ` ${spell(n % 100)}` : ''}`;
+    if (n < 1000) return `${units[Math.floor(n / 100)]} ratus${n % 100 ? ` ${spell(n % 100)}` : ''}`;
+    if (n < 2000) return `seribu${n % 1000 ? ` ${spell(n % 1000)}` : ''}`;
+    if (n < 1000000) return `${spell(Math.floor(n / 1000))} ribu${n % 1000 ? ` ${spell(n % 1000)}` : ''}`;
+    if (n < 1000000000) return `${spell(Math.floor(n / 1000000))} juta${n % 1000000 ? ` ${spell(n % 1000000)}` : ''}`;
+    if (n < 1000000000000) return `${spell(Math.floor(n / 1000000000))} miliar${n % 1000000000 ? ` ${spell(n % 1000000000)}` : ''}`;
+    return `${spell(Math.floor(n / 1000000000000))} triliun${n % 1000000000000 ? ` ${spell(n % 1000000000000)}` : ''}`;
+  };
+  return spell(number);
+}
+function formatColli(value) {
+  const number = Math.floor(Number(value ?? 1));
+  const safeNumber = Number.isFinite(number) && number >= 0 ? number : 1;
+  return `${safeNumber} (${numberToIndonesianWords(safeNumber)})`;
+}
+
 function generateNextResiId(shipments) {
   const saved = localStorage.getItem('mataram76_resi_counter');
   let counter = saved ? parseInt(saved, 10) : 0;
@@ -1933,10 +1961,10 @@ function ReceiptContent({ receipt, variant }) {
       </div>
 
       <div className="border-b border-black pb-2 mb-2 space-y-1">
-        <div><span className="font-bold">PENGIRIM:</span> {variant === 'penerima' ? receipt.senderName : `${receipt.senderName} (${receipt.senderPhone})`}</div>
-        {receipt.senderAddress && <div><span className="font-bold">Alamat:</span> {receipt.senderAddress}</div>}
-        <div className="mt-1"><span className="font-bold">PENERIMA:</span> {receipt.receiverName} ({receipt.receiverPhone})</div>
-        <div><span className="font-bold">Alamat:</span> {receipt.receiverAddress}</div>
+        <div><div className="font-bold">PENGIRIM</div><div>{variant === 'penerima' ? receipt.senderName : `${receipt.senderName} (${receipt.senderPhone})`}</div></div>
+        {receipt.senderAddress && <div><div className="font-bold">ALAMAT PENGIRIM</div><div>{receipt.senderAddress}</div></div>}
+        <div className="mt-3"><div className="font-bold">PENERIMA</div><div>{receipt.receiverName} ({receipt.receiverPhone})</div></div>
+        <div><div className="font-bold">ALAMAT PENERIMA</div><div>{receipt.receiverAddress}</div></div>
       </div>
 
       <div className="border-b border-black pb-2 mb-2 space-y-0.5">
@@ -1945,7 +1973,7 @@ function ReceiptContent({ receipt, variant }) {
         {(receipt.weight || receipt.length) && (
           <div><span className="font-bold">Fisik:</span> {receipt.weight ? `${receipt.weight}kg` : ''} {receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}</div>
         )}
-        <div><span className="font-bold">Colli:</span> {receipt.colli ?? 1}</div>
+        <div><span className="font-bold">Colli:</span> {formatColli(receipt.colli ?? 1)}</div>
       </div>
 
       {variant === 'pengirim' && (
@@ -2021,16 +2049,16 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
       </div>
     </div>
     <div class="section">
-      <div class="row"><span class="bold">PENGIRIM:</span> ${senderContact}</div>
-      ${receipt.senderAddress ? `<div class="row"><span class="bold">Alamat:</span> ${escapePrintHtml(receipt.senderAddress)}</div>` : ''}
-      <div class="row"><span class="bold">PENERIMA:</span> ${escapePrintHtml(receipt.receiverName)} (${escapePrintHtml(receipt.receiverPhone)})</div>
-      <div class="row"><span class="bold">Alamat:</span> ${escapePrintHtml(receipt.receiverAddress)}</div>
+      <div class="row"><div class="bold">PENGIRIM</div><div>${senderContact}</div></div>
+      ${receipt.senderAddress ? `<div class="row"><div class="bold">ALAMAT PENGIRIM</div><div>${escapePrintHtml(receipt.senderAddress)}</div></div>` : ''}
+      <div class="row party-gap"><div class="bold">PENERIMA</div><div>${escapePrintHtml(receipt.receiverName)} (${escapePrintHtml(receipt.receiverPhone)})</div></div>
+      <div class="row"><div class="bold">ALAMAT PENERIMA</div><div>${escapePrintHtml(receipt.receiverAddress)}</div></div>
     </div>
     <div class="section">
       <div class="row"><span class="bold">Tujuan:</span> ${escapePrintHtml(receipt.destinationCity)}</div>
       <div class="row"><span class="bold">Layanan:</span> ${escapePrintHtml(receipt.serviceType)}</div>
       ${(receipt.weight || receipt.length) ? `<div class="row"><span class="bold">Fisik:</span> ${receipt.weight ? `${escapePrintHtml(receipt.weight)}kg` : ''} ${receipt.length ? `(${escapePrintHtml(receipt.length)}x${escapePrintHtml(receipt.width)}x${escapePrintHtml(receipt.height)}cm)` : ''}</div>` : ''}
-      <div class="row"><span class="bold">Colli:</span> ${escapePrintHtml(receipt.colli ?? 1)}</div>
+      <div class="row"><span class="bold">Colli:</span> ${escapePrintHtml(formatColli(receipt.colli ?? 1))}</div>
     </div>`;
 
   const bodies = {
@@ -2066,6 +2094,7 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
     .city { border:2px solid #000; min-width:28mm; max-width:36mm; padding:1mm 2mm; font-size:18px; font-weight:900; display:flex; align-items:center; justify-content:center; text-align:center; text-transform:uppercase; overflow:hidden; }
     .section { border-bottom:1px solid #000; padding-bottom:2mm; margin-bottom:2mm; }
     .row { margin-bottom:1mm; overflow-wrap:anywhere; word-break:break-word; }
+    .party-gap { margin-top:3mm; }
     .bold { font-weight:700; }
     .total { text-align:center; font-weight:700; font-size:12px; border-top:1px solid #000; padding-top:1mm; }
     .signature { padding-top:2mm; }
