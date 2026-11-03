@@ -165,7 +165,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     setFont(22, boldLabel ? 700 : 400);
     const labelWidth = ctx.measureText(labelText).width;
     setFont(22, 400);
-    const words = valueText.split(/\\s+/).filter(Boolean);
+    const words = valueText.split(/\s+/).filter(Boolean);
     const lines: string[] = [];
     let line = '';
     for (const word of words) {
