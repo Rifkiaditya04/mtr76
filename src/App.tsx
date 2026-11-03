@@ -1940,19 +1940,19 @@ function ReceiptContent({ receipt, variant }) {
   }[variant];
 
   return (
-    <div className="receipt-thermal bg-white text-black p-3 font-mono text-[11px] leading-tight w-[80mm] mx-auto border border-dashed border-gray-300 mb-6 print:border-none print:mb-0 print:w-[80mm] print:h-[80mm]">
+    <div className="receipt-thermal bg-white text-black p-3 font-mono font-normal text-[11px] leading-tight w-[80mm] mx-auto border border-dashed border-gray-300 mb-6 print:border-none print:mb-0 print:w-[80mm] print:h-[80mm]">
       <div className="text-center border-b border-black pb-2 mb-2">
         <p className="text-[10px] font-bold tracking-wider mb-0.5">*** {variantLabel} ***</p>
         <h1 className="text-lg font-black tracking-widest">MATARAM76</h1>
-        <p className="text-[10px] mt-0.5">agen pengangkutan paket cepat</p>
+        <p className="text-[10px] font-bold mt-0.5">agen pengangkutan paket cepat</p>
         <p className="text-[9px] mt-0.5">Jl. MT Haryono 76 Semarang</p>
         <p className="text-[9px]">Telp. (024) 3549652 | WA: 08179175780</p>
         
         <div className="mt-1.5 flex items-stretch justify-between border-t border-b border-black py-1 my-1">
           <div className="text-left flex flex-col justify-center">
             <div className="font-bold text-xs">RESI: {receipt.id}</div>
-            <div className="text-[9px] mt-0.5">Tgl: {receipt.date}</div>
-            {receipt.time && <div className="text-[9px] mt-0.5">Waktu: {receipt.time}</div>}
+            <div className="text-[9px] mt-0.5"><span className="font-bold">Tgl:</span> {receipt.date}</div>
+            {receipt.time && <div className="text-[9px] mt-0.5"><span className="font-bold">Waktu:</span> {receipt.time}</div>}
           </div>
           <div className="border-2 border-black px-2 font-black text-2xl uppercase flex items-center justify-center text-center bg-gray-50 ml-2 min-w-[85px] tracking-wide">
             {receipt.destinationCity || '-'}
@@ -1961,10 +1961,10 @@ function ReceiptContent({ receipt, variant }) {
       </div>
 
       <div className="border-b border-black pb-2 mb-2 space-y-1">
-        <div><div className="font-bold">PENGIRIM</div><div>{variant === 'penerima' ? receipt.senderName : `${receipt.senderName} (${receipt.senderPhone})`}</div></div>
-        {receipt.senderAddress && <div><div className="font-bold">ALAMAT PENGIRIM</div><div>{receipt.senderAddress}</div></div>}
-        <div className="mt-3"><div className="font-bold">PENERIMA</div><div>{receipt.receiverName} ({receipt.receiverPhone})</div></div>
-        <div><div className="font-bold">ALAMAT PENERIMA</div><div>{receipt.receiverAddress}</div></div>
+        <div><div className="font-bold">PENGIRIM</div><div className="font-normal">{variant === 'penerima' ? receipt.senderName : `${receipt.senderName} (${receipt.senderPhone})`}</div></div>
+        {receipt.senderAddress && <div><div className="font-bold">ALAMAT PENGIRIM</div><div className="font-normal">{receipt.senderAddress}</div></div>}
+        <div className="mt-3"><div className="font-bold">PENERIMA</div><div className="font-normal">{receipt.receiverName} ({receipt.receiverPhone})</div></div>
+        <div><div className="font-bold">ALAMAT PENERIMA</div><div className="font-normal">{receipt.receiverAddress}</div></div>
       </div>
 
       <div className="border-b border-black pb-2 mb-2 space-y-0.5">
@@ -1994,12 +1994,12 @@ function ReceiptContent({ receipt, variant }) {
           <div>Ongkir: Rp {shippingCost.toLocaleString('id-ID')}</div>
           {calo > 0 && <div>Calo: - Rp {calo.toLocaleString('id-ID')}</div>}
           <div>LB: {receipt.lb ? receipt.lb : '-'}</div>
-          <div className="font-bold pt-1 border-t border-black">
+          <div className="font-normal pt-1 border-t border-black">
             HASIL: Rp {internalNet.toLocaleString('id-ID')}
           </div>
           <div>ST: Rp {st.toLocaleString('id-ID')}</div>
           <div>Sopir: {receipt.sopir || '-'}</div>
-          <div className="font-bold pt-1 border-t border-black text-emerald-800 text-[11px]">
+          <div className="font-normal pt-1 border-t border-black text-emerald-800 text-[11px]">
             Pendapatan Bersih: Rp {netIncome.toLocaleString('id-ID')}
           </div>
         </div>
@@ -2042,8 +2042,8 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
       <div class="meta">
         <div class="meta-left">
           <div class="resi">RESI: ${escapePrintHtml(receipt.id)}</div>
-          <div class="tiny">Tgl: ${escapePrintHtml(receipt.date)}</div>
-          ${receipt.time ? `<div class="tiny">Waktu: ${escapePrintHtml(receipt.time)}</div>` : ''}
+          <div class="tiny"><span class="bold">Tgl:</span> ${escapePrintHtml(receipt.date)}</div>
+          ${receipt.time ? `<div class="tiny"><span class="bold">Waktu:</span> ${escapePrintHtml(receipt.time)}</div>` : ''}
         </div>
         <div class="city">${escapePrintHtml(receipt.destinationCity || '-')}</div>
       </div>
@@ -2080,14 +2080,14 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
   return `<!doctype html><html><head><meta charset="utf-8"><title>Nota ${escapePrintHtml(receipt.id)} - ${titles[variant]}</title><style>
     ${heightRule}
     html,body { margin:0 !important; padding:0 !important; background:#fff !important; color:#000 !important; width:80mm; }
-    body { font-family:"Courier New", monospace; font-weight:700; }
+    body { font-family:"Courier New", monospace; font-weight:400; }
     .receipt-page { width:80mm; margin:0; padding:0; }
-    .receipt { width:80mm; max-width:80mm; box-sizing:border-box; padding:4mm; font-size:11px; line-height:1.15; overflow:visible; font-weight:700; }
+    .receipt { width:80mm; max-width:80mm; box-sizing:border-box; padding:4mm; font-size:11px; line-height:1.15; overflow:visible; font-weight:400; }
     .header { text-align:center; border-bottom:1px solid #000; padding-bottom:2mm; margin-bottom:2mm; }
     .label { font-size:10px; font-weight:700; letter-spacing:1px; }
     .brand { font-size:18px; font-weight:900; letter-spacing:3px; }
     .sub,.tiny { font-size:9px; }
-    .sub { font-size:10px; margin-top:1px; }
+    .sub { font-size:10px; font-weight:700; margin-top:1px; }
     .meta { display:flex; justify-content:space-between; align-items:stretch; border-top:1px solid #000; border-bottom:1px solid #000; padding:1.2mm 0; margin:1.5mm 0; }
     .meta-left { text-align:left; }
     .resi { font-weight:700; font-size:12px; }
@@ -2100,8 +2100,8 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
     .signature { padding-top:2mm; }
     .signspace { height:10mm; }
     .internal { font-size:10px; }
-    .result { font-weight:700; border-top:1px solid #000; padding-top:1mm; }
-    .net { font-weight:700; border-top:1px solid #000; padding-top:1mm; font-size:11px; }
+    .result { font-weight:400; border-top:1px solid #000; padding-top:1mm; }
+    .net { font-weight:400; border-top:1px solid #000; padding-top:1mm; font-size:11px; }
     .footer { text-align:center; font-size:8px; border-top:1px solid #000; padding-top:1mm; margin-top:2mm; overflow-wrap:anywhere; }
     ${measureOnly ? '@media print { @page { size: 80mm auto; margin:0; } }' : ''}
   </style></head><body>
