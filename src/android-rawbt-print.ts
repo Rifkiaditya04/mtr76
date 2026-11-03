@@ -235,7 +235,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   row('Tujuan:', receipt.destinationCity || '-');
   row('Layanan:', receipt.serviceType || '-');
   if (receipt.weight || receipt.length) {
-    row('Fisik:', `${receipt.weight ? `${receipt.weight}kg` : ''} ${receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}`);
+    row('Fisik:', `${receipt.weight ? `${receipt.weight}kg` : ''} ${receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}`, false);
   }
   row('Colli:', formatColli(receipt.colli ?? 1));
   sectionEnd();
@@ -253,13 +253,13 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     y += 110;
     rule(10);
   } else {
-    row('Ongkir:', `Rp ${money(shippingCost)}`);
-    if (calo > 0) row('Calo:', `- Rp ${money(calo)}`);
-    row('LB:', receipt.lb || '-');
+    row('Ongkir:', `Rp ${money(shippingCost)}`, false);
+    if (calo > 0) row('Calo:', `- Rp ${money(calo)}`, false);
+    row('LB:', receipt.lb || '-', false);
     rule(8);
-    row('HASIL:', `Rp ${money(internalNet)}`);
-    row('ST:', `Rp ${money(st)}`);
-    row('Sopir:', receipt.sopir || '-');
+    row('HASIL:', `Rp ${money(internalNet)}`, false);
+    row('ST:', `Rp ${money(st)}`, false);
+    row('Sopir:', receipt.sopir || '-', false);
     rule(8);
     textBlock(`Pendapatan Bersih: Rp ${money(netIncome)}`, 23, 400, 5);
   }
