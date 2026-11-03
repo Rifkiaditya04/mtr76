@@ -1971,7 +1971,7 @@ function ReceiptContent({ receipt, variant }) {
         <div><span className="font-bold">Tujuan:</span> {receipt.destinationCity}</div>
         <div><span className="font-bold">Layanan:</span> {receipt.serviceType}</div>
         {(receipt.weight || receipt.length) && (
-          <div><span className="font-bold">Fisik:</span> {receipt.weight ? `${receipt.weight}kg` : ''} {receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}</div>
+          <div>Fisik: {receipt.weight ? `${receipt.weight}kg` : ''} {receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}</div>
         )}
         <div><span className="font-bold">Colli:</span> {formatColli(receipt.colli ?? 1)}</div>
       </div>
@@ -2057,7 +2057,7 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
     <div class="section">
       <div class="row"><span class="bold">Tujuan:</span> ${escapePrintHtml(receipt.destinationCity)}</div>
       <div class="row"><span class="bold">Layanan:</span> ${escapePrintHtml(receipt.serviceType)}</div>
-      ${(receipt.weight || receipt.length) ? `<div class="row"><span class="bold">Fisik:</span> ${receipt.weight ? `${escapePrintHtml(receipt.weight)}kg` : ''} ${receipt.length ? `(${escapePrintHtml(receipt.length)}x${escapePrintHtml(receipt.width)}x${escapePrintHtml(receipt.height)}cm)` : ''}</div>` : ''}
+      ${(receipt.weight || receipt.length) ? `<div class="row">Fisik: ${receipt.weight ? `${escapePrintHtml(receipt.weight)}kg` : ''} ${receipt.length ? `(${escapePrintHtml(receipt.length)}x${escapePrintHtml(receipt.width)}x${escapePrintHtml(receipt.height)}cm)` : ''}</div>` : ''}
       <div class="row"><span class="bold">Colli:</span> ${escapePrintHtml(formatColli(receipt.colli ?? 1))}</div>
     </div>`;
 
