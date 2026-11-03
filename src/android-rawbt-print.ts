@@ -72,7 +72,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     ctx.font = `${weight} ${size * scale}px monospace`;
   };
 
-  const center = (text: string, size = 24, weight = 700, gap = 7) => {
+  const center = (text: string, size = 24, weight = 400, gap = 7) => {
     setFont(size, weight);
     const lines = wrapText(ctx, text, CONTENT_WIDTH);
     for (const line of lines) {
@@ -109,7 +109,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     return lines;
   };
 
-  const textBlock = (text: string, size = 23, weight = 700, gap = 5) => {
+  const textBlock = (text: string, size = 23, weight = 400, gap = 5) => {
     setFont(size, weight);
     for (const line of wrapText(ctx, text, CONTENT_WIDTH)) {
       const metrics = ctx.measureText(line);
@@ -159,9 +159,37 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     y += boxHeight + 10;
   };
 
-  const row = (label: string, value: unknown) => {
-    const content = `${label} ${String(value ?? '-')}`;
-    textBlock(content, 22, 700, 5);
+  const row = (label: string, value: unknown, boldLabel = true) => {
+    const labelText = `${label} `;
+    const valueText = String(value ?? '-');
+    setFont(22, boldLabel ? 700 : 400);
+    const labelWidth = ctx.measureText(labelText).width;
+    setFont(22, 400);
+    const words = valueText.split(/\\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      const maxWidth = lines.length === 0 ? Math.max(40, CONTENT_WIDTH - labelWidth) : CONTENT_WIDTH;
+      if (ctx.measureText(candidate).width <= maxWidth || !line) line = candidate;
+      else { lines.push(line); line = word; }
+    }
+    if (line) lines.push(line);
+    if (!lines.length) lines.push('-');
+    for (let index = 0; index < lines.length; index += 1) {
+      setFont(22, 400);
+      const metrics = ctx.measureText(lines[index]);
+      const ascent = metrics.actualBoundingBoxAscent || 22 * 0.8;
+      const descent = metrics.actualBoundingBoxDescent || 22 * 0.2;
+      const lineHeight = Math.max(22 + 4, ascent + descent + 4);
+      if (index === 0) {
+        setFont(22, boldLabel ? 700 : 400);
+        ctx.fillText(labelText, LEFT, y + ascent);
+        setFont(22, 400);
+        ctx.fillText(lines[index], LEFT + labelWidth, y + ascent);
+      } else ctx.fillText(lines[index], LEFT, y + ascent);
+      y += lineHeight + 5;
+    }
   };
 
   const sectionEnd = () => {
@@ -178,13 +206,13 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   center(titles[variant], 22, 700, 5);
   center('MATARAM76', 34, 900, 3);
   center('agen pengangkutan paket cepat', 20, 700, 3);
-  center('Jl. MT Haryono 76 Semarang', 18, 700, 3);
-  center('Telp. (024) 3549652 | WA: 08179175780', 18, 700, 5);
+  center('Jl. MT Haryono 76 Semarang', 18, 400, 3);
+  center('Telp. (024) 3549652 | WA: 08179175780', 18, 400, 5);
   rule(10);
 
   textBlock(`RESI: ${receipt.id || '-'}`, 23, 900, 5);
-  textBlock(`Tgl: ${receipt.date || '-'}`, 19, 700, 5);
-  textBlock(`Waktu: ${receipt.time || '-'}`, 19, 700, 5);
+  row('Tgl:', receipt.date || '-', true);
+  row('Waktu:', receipt.time || '-', true);
   boxedCity(receipt.destinationCity || '-');
   rule(12);
 
@@ -192,16 +220,16 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     ? receipt.senderName
     : `${receipt.senderName || '-'} (${receipt.senderPhone || '-'})`;
   textBlock('PENGIRIM', 22, 900, 3);
-  textBlock(senderContact, 22, 700, 5);
+  textBlock(senderContact, 22, 400, 5);
   if (receipt.senderAddress) {
     textBlock('ALAMAT PENGIRIM', 22, 900, 3);
-    textBlock(receipt.senderAddress, 22, 700, 5);
+    textBlock(receipt.senderAddress, 22, 400, 5);
   }
   y += 12; // Satu baris kosong sebagai pemisah pengirim dan penerima.
   textBlock('PENERIMA', 22, 900, 3);
-  textBlock(`${receipt.receiverName || '-'} (${receipt.receiverPhone || '-'})`, 22, 700, 5);
+  textBlock(`${receipt.receiverName || '-'} (${receipt.receiverPhone || '-'})`, 22, 400, 5);
   textBlock('ALAMAT PENERIMA', 22, 900, 3);
-  textBlock(receipt.receiverAddress || '-', 22, 700, 5);
+  textBlock(receipt.receiverAddress || '-', 22, 400, 5);
   sectionEnd();
 
   row('Tujuan:', receipt.destinationCity || '-');
@@ -221,7 +249,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   if (variant === 'pengirim') {
     center(`TOTAL ONGKIR: Rp ${money(shippingCost)}`, 25, 900, 5);
   } else if (variant === 'penerima') {
-    textBlock('Tanda tangan penerima:', 20, 700, 5);
+    textBlock('Tanda tangan penerima:', 20, 400, 5);
     y += 110;
     rule(10);
   } else {
@@ -233,13 +261,13 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
     row('ST:', `Rp ${money(st)}`);
     row('Sopir:', receipt.sopir || '-');
     rule(8);
-    textBlock(`Pendapatan Bersih: Rp ${money(netIncome)}`, 23, 900, 5);
+    textBlock(`Pendapatan Bersih: Rp ${money(netIncome)}`, 23, 400, 5);
   }
 
   rule(12);
-  center('Jika dalam waktu 7 hari tidak ada pengaduan', 17, 700, 3);
-  center('dan pengirim, dianggap telah diterima', 17, 700, 3);
-  center('dengan baik/betul.', 17, 700, 3);
+  center('Jika dalam waktu 7 hari tidak ada pengaduan', 17, 400, 3);
+  center('dan pengirim, dianggap telah diterima', 17, 400, 3);
+  center('dengan baik/betul.', 17, 400, 3);
 
   y += 18;
   // Crop to the actual rendered content; do not transmit the 4096px work canvas.
