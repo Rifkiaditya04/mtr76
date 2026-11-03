@@ -17,6 +17,34 @@ function isAndroid(): boolean {
   return /Android/i.test(navigator.userAgent);
 }
 
+
+function numberToIndonesianWords(value: unknown): string {
+  const number = Math.floor(Number(value));
+  if (!Number.isFinite(number) || number < 0) return 'nol';
+  if (number === 0) return 'nol';
+  const units = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
+  const spell = (n: number): string => {
+    if (n < 10) return units[n];
+    if (n === 10) return 'sepuluh';
+    if (n === 11) return 'sebelas';
+    if (n < 20) return `${units[n - 10]} belas`;
+    if (n < 100) return `${units[Math.floor(n / 10)]} puluh${n % 10 ? ` ${spell(n % 10)}` : ''}`;
+    if (n < 200) return `seratus${n % 100 ? ` ${spell(n % 100)}` : ''}`;
+    if (n < 1000) return `${units[Math.floor(n / 100)]} ratus${n % 100 ? ` ${spell(n % 100)}` : ''}`;
+    if (n < 2000) return `seribu${n % 1000 ? ` ${spell(n % 1000)}` : ''}`;
+    if (n < 1000000) return `${spell(Math.floor(n / 1000))} ribu${n % 1000 ? ` ${spell(n % 1000)}` : ''}`;
+    if (n < 1000000000) return `${spell(Math.floor(n / 1000000))} juta${n % 1000000 ? ` ${spell(n % 1000000)}` : ''}`;
+    if (n < 1000000000000) return `${spell(Math.floor(n / 1000000000))} miliar${n % 1000000000 ? ` ${spell(n % 1000000000)}` : ''}`;
+    return `${spell(Math.floor(n / 1000000000000))} triliun${n % 1000000000000 ? ` ${spell(n % 1000000000000)}` : ''}`;
+  };
+  return spell(number);
+}
+function formatColli(value: unknown): string {
+  const number = Math.floor(Number(value ?? 1));
+  const safeNumber = Number.isFinite(number) && number >= 0 ? number : 1;
+  return `${safeNumber} (${numberToIndonesianWords(safeNumber)})`;
+}
+
 function money(value: unknown): string {
   return Number(value || 0).toLocaleString('id-ID');
 }
@@ -163,10 +191,17 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   const senderContact = variant === 'penerima'
     ? receipt.senderName
     : `${receipt.senderName || '-'} (${receipt.senderPhone || '-'})`;
-  row('PENGIRIM:', senderContact);
-  if (receipt.senderAddress) row('Alamat pengirim:', receipt.senderAddress);
-  row('PENERIMA:', `${receipt.receiverName || '-'} (${receipt.receiverPhone || '-'})`);
-  row('Alamat penerima:', receipt.receiverAddress || '-');
+  textBlock('PENGIRIM', 22, 900, 3);
+  textBlock(senderContact, 22, 700, 5);
+  if (receipt.senderAddress) {
+    textBlock('ALAMAT PENGIRIM', 22, 900, 3);
+    textBlock(receipt.senderAddress, 22, 700, 5);
+  }
+  y += 12; // Satu baris kosong sebagai pemisah pengirim dan penerima.
+  textBlock('PENERIMA', 22, 900, 3);
+  textBlock(`${receipt.receiverName || '-'} (${receipt.receiverPhone || '-'})`, 22, 700, 5);
+  textBlock('ALAMAT PENERIMA', 22, 900, 3);
+  textBlock(receipt.receiverAddress || '-', 22, 700, 5);
   sectionEnd();
 
   row('Tujuan:', receipt.destinationCity || '-');
@@ -174,7 +209,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
   if (receipt.weight || receipt.length) {
     row('Fisik:', `${receipt.weight ? `${receipt.weight}kg` : ''} ${receipt.length ? `(${receipt.length}x${receipt.width}x${receipt.height}cm)` : ''}`);
   }
-  row('Colli:', receipt.colli ?? 1);
+  row('Colli:', formatColli(receipt.colli ?? 1));
   sectionEnd();
 
   const shippingCost = Number(receipt.shippingCost) || 0;
