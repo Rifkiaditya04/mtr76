@@ -2006,7 +2006,7 @@ function ReceiptContent({ receipt, variant }) {
       )}
 
       <div className="text-center text-[9px] pt-1 border-t border-black mt-2">
-        <p>Jika dalam waktu 7 hari tidak ada pengaduan dan pengirim, dianggap telah diterima dengan baik/betul.</p>
+        <p>Jika dalam waktu 7 hari tidak ada pengaduan dari pengirim, dianggap telah diterima dengan baik/betul.</p>
       </div>
     </div>
   );
@@ -2105,7 +2105,7 @@ function buildReceiptPrintHtml(receipt, variant, pageHeightMm = null, measureOnl
     .footer { text-align:center; font-size:8px; border-top:1px solid #000; padding-top:1mm; margin-top:2mm; overflow-wrap:anywhere; }
     ${measureOnly ? '@media print { @page { size: 80mm auto; margin:0; } }' : ''}
   </style></head><body>
-    <section class="receipt-page"><div class="receipt">${common.replace('{{TITLE}}', titles[variant])}${bodies[variant]}<div class="footer">Jika dalam waktu 7 hari tidak ada pengaduan dan pengirim, dianggap telah diterima dengan baik/betul.</div></div></section>
+    <section class="receipt-page"><div class="receipt">${common.replace('{{TITLE}}', titles[variant])}${bodies[variant]}<div class="footer">Jika dalam waktu 7 hari tidak ada pengaduan dari pengirim, dianggap telah diterima dengan baik/betul.</div></div></section>
   </body></html>`;
 }
 

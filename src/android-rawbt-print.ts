@@ -266,7 +266,7 @@ function renderReceipt(receipt: ReceiptData, variant: 'pengirim' | 'penerima' | 
 
   rule(12);
   center('Jika dalam waktu 7 hari tidak ada pengaduan', 17, 400, 3);
-  center('dan pengirim, dianggap telah diterima', 17, 400, 3);
+  center('dari pengirim, dianggap telah diterima', 17, 400, 3);
   center('dengan baik/betul.', 17, 400, 3);
 
   y += 18;
