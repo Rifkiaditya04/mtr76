@@ -1047,18 +1047,6 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
   }, [page, currentPage, setViewState]);
 
   const handleDelete = async (firebaseId, id) => {
-    const matchSearch = 
-      item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.senderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.receiverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.destinationCity.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchDate = filterDate ? item.date === filterDate : true;
-
-    return matchSearch && matchDate;
-  });
-
-  const handleDelete = async (firebaseId, id) => {
     if (window.confirm(`Yakin ingin menghapus data pengiriman ${id}?`)) {
       try {
         if (firebaseId) {
@@ -1178,7 +1166,7 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {paginatedShipments.map((item) => (
-                <tr key={item.firebaseId || idx} className="hover:bg-slate-800/30 transition-all">
+                <tr key={item.firebaseId || item.id} className="hover:bg-slate-800/30 transition-all">
                   <td className="p-3 font-mono font-medium text-indigo-400">{item.id}</td>
                   <td className="p-3 text-slate-300">{item.date}</td>
                   <td className="p-3">
