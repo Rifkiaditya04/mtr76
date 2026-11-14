@@ -8,7 +8,7 @@ import {
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDocs, query, orderBy } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAjaB_RVf6tocoQV_udCOYor8CK5EF9Ry4",
@@ -92,6 +92,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [shipmentListState, setShipmentListState] = useState({ searchTerm: '', filterDate: '', page: 1, pageSize: 25 });
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [quickInputData, setQuickInputData] = useState(null);
 
@@ -163,9 +164,9 @@ export default function App() {
       console.error("Auth error:", err);
     });
 
-    const unsubShipments = onSnapshot(collection(db, 'shipments'), (snapshot) => {
+    const shipmentsQuery = query(collection(db, 'shipments'), orderBy('id', 'desc'));
+    const unsubShipments = onSnapshot(shipmentsQuery, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ firebaseId: doc.id, ...doc.data() }));
-      list.sort((a, b) => b.id.localeCompare(a.id));
       if (list.length > 0) {
         setShipments(list);
       } else {
@@ -399,7 +400,7 @@ export default function App() {
       <main className="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full">
         {activeTab === 'dashboard' && <DashboardView shipments={shipments} setActiveTab={setActiveTab} setSelectedReceipt={setSelectedReceipt} />}
         {activeTab === 'input' && <InputShippingView shipments={shipments} setShipments={setShipments} customers={customers} setCustomers={setCustomers} settings={settings} setSelectedReceipt={setSelectedReceipt} showToast={showToast} initialData={quickInputData} setInitialData={setQuickInputData} />}
-        {activeTab === 'shipments' && <ShipmentsListView shipments={shipments} setShipments={setShipments} customers={customers} setCustomers={setCustomers} setSelectedReceipt={setSelectedReceipt} showToast={showToast} />}
+        {activeTab === 'shipments' && <ShipmentsListView shipments={shipments} setShipments={setShipments} customers={customers} setCustomers={setCustomers} setSelectedReceipt={setSelectedReceipt} showToast={showToast} viewState={shipmentListState} setViewState={setShipmentListState} />}
         {activeTab === 'customers' && <CustomersView customers={customers} setCustomers={setCustomers} shipments={shipments} showToast={showToast} setActiveTab={setActiveTab} setQuickInputData={setQuickInputData} />}
         {activeTab === 'reports' && <ReportsView shipments={shipments} setShipments={setShipments} showToast={showToast} />}
         {activeTab === 'settings' && <SettingsView settings={settings} setSettings={setSettings} adminCredentials={adminCredentials} setAdminCredentials={setAdminCredentials} showToast={showToast} />}
@@ -1017,21 +1018,33 @@ function InputShippingView({ shipments, setShipments, customers, setCustomers, s
   );
 }
 
-function ShipmentsListView({ shipments, setShipments, customers, setCustomers, setSelectedReceipt, showToast }) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+function ShipmentsListView({ shipments, setShipments, customers, setCustomers, setSelectedReceipt, showToast, viewState, setViewState }) {
+  const { searchTerm, filterDate, page, pageSize } = viewState;
 
-  const filteredShipments = shipments.filter(item => {
-    const matchSearch = 
-      item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.senderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.receiverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.destinationCity.toLowerCase().includes(searchTerm.toLowerCase());
-    
+  const filteredShipments = useMemo(() => shipments.filter(item => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const matchSearch =
+      String(item.id || '').toLowerCase().includes(normalizedSearch) ||
+      String(item.senderName || '').toLowerCase().includes(normalizedSearch) ||
+      String(item.receiverName || '').toLowerCase().includes(normalizedSearch) ||
+      String(item.destinationCity || '').toLowerCase().includes(normalizedSearch);
+
     const matchDate = filterDate ? item.date === filterDate : true;
-
     return matchSearch && matchDate;
-  });
+  }), [shipments, searchTerm, filterDate]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredShipments.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedShipments = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredShipments.slice(startIndex, startIndex + pageSize);
+  }, [filteredShipments, currentPage, pageSize]);
+
+  useEffect(() => {
+    if (page !== currentPage) {
+      setViewState(prev => ({ ...prev, page: currentPage }));
+    }
+  }, [page, currentPage, setViewState]);
 
   const handleDelete = async (firebaseId, id) => {
     if (window.confirm(`Yakin ingin menghapus data pengiriman ${id}?`)) {
@@ -1097,7 +1110,7 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
               className="pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Cari resi / nama..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setViewState(prev => ({ ...prev, searchTerm: e.target.value, page: 1 }))}
             />
           </div>
 
@@ -1106,19 +1119,28 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
               type="date"
               className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
+              onChange={(e) => setViewState(prev => ({ ...prev, filterDate: e.target.value, page: 1 }))}
             />
           </div>
 
           {filterDate && (
             <button
-              onClick={() => setFilterDate('')}
+              onClick={() => setViewState(prev => ({ ...prev, filterDate: '', page: 1 }))}
               className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium"
             >
               Reset Tanggal
             </button>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 text-xs text-slate-400">
+        <span>Menampilkan {filteredShipments.length === 0 ? 0 : ((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, filteredShipments.length)} dari {filteredShipments.length} transaksi</span>
+        <label className="flex items-center gap-2">Baris per halaman
+          <select value={pageSize} onChange={(e) => setViewState(prev => ({ ...prev, pageSize: Number(e.target.value), page: 1 }))} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white">
+            <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+          </select>
+        </label>
       </div>
 
       {filteredShipments.length === 0 ? (
@@ -1143,8 +1165,8 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {filteredShipments.map((item, idx) => (
-                <tr key={item.firebaseId || idx} className="hover:bg-slate-800/30 transition-all">
+              {paginatedShipments.map((item) => (
+                <tr key={item.firebaseId || item.id} className="hover:bg-slate-800/30 transition-all">
                   <td className="p-3 font-mono font-medium text-indigo-400">{item.id}</td>
                   <td className="p-3 text-slate-300">{item.date}</td>
                   <td className="p-3">
@@ -1194,6 +1216,15 @@ function ShipmentsListView({ shipments, setShipments, customers, setCustomers, s
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {filteredShipments.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-800">
+          <span className="text-xs text-slate-400">Halaman {currentPage} dari {totalPages}</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setViewState(prev => ({ ...prev, page: Math.max(1, currentPage - 1) }))} disabled={currentPage <= 1} className="px-3 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed">Sebelumnya</button>
+            <button type="button" onClick={() => setViewState(prev => ({ ...prev, page: Math.min(totalPages, currentPage + 1) }))} disabled={currentPage >= totalPages} className="px-3 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs disabled:opacity-40 disabled:cursor-not-allowed">Berikutnya</button>
+          </div>
         </div>
       )}
     </div>
